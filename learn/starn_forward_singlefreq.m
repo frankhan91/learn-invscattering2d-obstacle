@@ -2,24 +2,26 @@
 % number of sensors and incident directions where data is available for all
 % sensors at each incident direction
 
-clear all 
 close all
+clearvars
 
+cfg_path = './configs/nc3.json';
+cfg = jsondecode(fileread(cfg_path));
 n  = 300;
-ndata = 1;
-% max number of wiggles
-nc = 3;
 
+ndata = cfg.ndata;
+
+% max number of wiggles
+nc = cfg.nc;
 % Set of frequencies (k_{i})
-nk = 1;
-kh = 10;
+nk = cfg.nk;
+kh = cfg.kh;
 
 
 % Test obstacle Frechet derivative for Dirichlet problem
 bc = [];
 bc.type = 'Dirichlet';
 bc.invtype = 'o';
-
 
 
 src0 = [0.01;-0.12];
@@ -30,12 +32,12 @@ opts.verbose = false;
 
 % set target locations
 %receptors (r_{\ell})
-r_tgt = 10;
-n_tgt = 48;
+r_tgt = cfg.r_tgt;
+n_tgt = cfg.n_tgt;
 t_tgt = 0:2*pi/n_tgt:2*pi-2*pi/n_tgt;
 
 % Incident directions (d_{j})
-n_dir = 48;
+n_dir = cfg.n_dir;
 t_dir = 0:2*pi/n_dir:2*pi-2*pi/n_dir;
 
 [t_tgt_grid,t_dir_grid] = meshgrid(t_tgt,t_dir);
@@ -51,9 +53,7 @@ sensor_info.tgt = tgt;
 sensor_info.t_dir = t_dir_grid;
 
 % parameters 'a'
-coefs_all = rand(ndata, 2*nc+1);
-coefs_all(:, 1) = coefs_all(:, 1) * 0.2 + 1;
-coefs_all(:, 2:2*nc+1) = coefs_all(:, 2:2*nc+1) * 0.6 - 0.3;
+coefs_all = sample_fc(cfg);
 
 nppw = 20;
 
@@ -83,5 +83,5 @@ hold on
 plot(src_info.xs,src_info.ys,'b.');
 plot(0, 0, 'r*');
 
-% fname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_' int2str(ndata) '.mat'];
+% fname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_' int2str(ndata) '/forward_data.mat'];
 % save(fname, 'coefs_all', 'uscat_all');

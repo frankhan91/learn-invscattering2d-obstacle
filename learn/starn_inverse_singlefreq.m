@@ -1,19 +1,21 @@
-% This script generates the data for a star shaped domain, for a fixed
-% number of sensors and incident directions where data is available for all
-% sensors at each incident direction
+% This script solves inverse problem based on single frequency data. The
+% data is either generated randomly in this script or read from pred.mat
 
-clear all 
 close all
+clearvars
 
 data_type = 'nn'; % 'random' or 'nn';
+cfg_path = './configs/nc3.json';
+cfg = jsondecode(fileread(cfg_path));
+pred_path = './data/star3_kh10_100/pred.mat';
 
 n  = 300;
-% max number of wiggles
-nc = 3;
 
+% max number of wiggles
+nc = cfg.nc;
 % Set of frequencies (k_{i})
-nk = 1;
-kh = 10;
+nk = cfg.nk;
+kh = cfg.kh;
 
 % Test obstacle Frechet derivative for Dirichlet problem
 bc = [];
@@ -29,12 +31,12 @@ opts.verbose = false;
 
 % set target locations
 %receptors (r_{\ell})
-r_tgt = 10;
-n_tgt = 48;
+r_tgt = cfg.r_tgt;
+n_tgt = cfg.n_tgt;
 t_tgt = 0:2*pi/n_tgt:2*pi-2*pi/n_tgt;
 
 % Incident directions (d_{j})
-n_dir = 48;
+n_dir = cfg.n_dir;
 t_dir = 0:2*pi/n_dir:2*pi-2*pi/n_dir;
 
 [t_tgt_grid,t_dir_grid] = meshgrid(t_tgt,t_dir);
@@ -53,11 +55,9 @@ sensor_info.t_dir = t_dir_grid;
 
 
 if strcmp(data_type, 'random')
-    coef = rand(1, 2*nc+1);
-    coef(:, 1) = coef(:, 1) * 0.2 + 1;
-    coef(:, 2:2*nc+1) = coef(:, 2:2*nc+1) * 0.6 - 0.3;
+    coef = sample_fc(cfg, 1);
 elseif strcmp(data_type, 'nn')
-    nn_pred = load('./data/star3_kh10_100_pred.mat');
+    nn_pred = load(pred_path);
     pred_idx = 1;
     coef = nn_pred.coef_val(pred_idx, :);
     coef_pred = nn_pred.coef_pred(pred_idx, :);
@@ -95,8 +95,8 @@ opts.verbose=true;
 bc = [];
 bc.type = 'Dirichlet';
 bc.invtype = 'o';
-optim_opts.optim_type = 'gn';
-optim_opts.filter_type = 'gauss-conv';
+optim_opts.optim_type = cfg.optim_type;
+optim_opts.filter_type = cfg.filter_type;
 %optim_opts.eps_res = 1e-10;
 %optim_opts.eps_upd = 1e-10;
 opts.store_src_info = true;
@@ -109,10 +109,10 @@ figure
 hold on
 plot(src_info_ex.xs,src_info_ex.ys,'k.', 'MarkerSize', 12);
 plot(src_info_default_res.xs,src_info_default_res.ys,'b--', 'LineWidth',2);
-
+plot(0, 0, 'r*');
 
 if strcmp(data_type, 'random')
-    legend('true boundar', 'boundary solved by default init')
+    legend('true boundary', 'boundary solved by default init')
 elseif strcmp(data_type, 'nn')
     [inv_data_all_pred,src_info_out_pred] = rla.rla_inverse_solver(u_meas,bc,...
                           optim_opts,opts,src_info_pred);
@@ -120,7 +120,7 @@ elseif strcmp(data_type, 'nn')
     src_info_pred_res = inv_data_all_pred{1}.src_info_all{iter_count};
     plot(src_info_pred.xs,src_info_pred.ys,'r:', 'LineWidth',2);
     plot(src_info_pred_res.xs,src_info_pred_res.ys,'m-.', 'LineWidth',2);
-    legend('true boundar', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init')
+    legend('true boundary', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init')
 end
 
 % saveas(gcf, ['./figs/pred' int2str(pred_idx) '.pdf'], 'pdf');
