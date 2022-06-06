@@ -5,8 +5,6 @@
 clear all 
 close all
 
-addpath('../');
-
 n  = 300;
 ndata = 1;
 % max number of wiggles
@@ -81,7 +79,9 @@ uscat_tgt = squeeze(uscat_all(ndata, :, :));
 imagesc(abs(((uscat_tgt))))
 
 figure
+hold on
 plot(src_info.xs,src_info.ys,'b.');
+plot(0, 0, 'r*');
 
-% fname = ['../data/star' int2str(nc) '_' int2str(kh) '_' int2str(ndata) '.mat'];
+% fname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_' int2str(ndata) '.mat'];
 % save(fname, 'coefs_all', 'uscat_all');

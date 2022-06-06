@@ -1,3 +1,7 @@
+*.ipynb_checkpoints/
+*/data
+*/figs
+*/ipynb
 .DS_Store
 *.a
 *.o

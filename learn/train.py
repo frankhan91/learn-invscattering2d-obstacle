@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
 
-fname = "../examples/data/star3_kh10_100.mat"
+fname = "./data/star3_kh10_100.mat"
 data = scipy.io.loadmat(fname)
 
 coefs_all = data["coefs_all"]

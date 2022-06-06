@@ -5,8 +5,6 @@
 clear all 
 close all
 
-addpath('../');
-
 data_type = 'nn'; % 'random' or 'nn';
 
 n  = 300;
@@ -59,7 +57,7 @@ if strcmp(data_type, 'random')
     coef(:, 1) = coef(:, 1) * 0.2 + 1;
     coef(:, 2:2*nc+1) = coef(:, 2:2*nc+1) * 0.6 - 0.3;
 elseif strcmp(data_type, 'nn')
-    nn_pred = load('../data/star3_kh10_100_pred.mat');
+    nn_pred = load('./data/star3_kh10_100_pred.mat');
     pred_idx = 1;
     coef = nn_pred.coef_val(pred_idx, :);
     coef_pred = nn_pred.coef_pred(pred_idx, :);
@@ -125,5 +123,5 @@ elseif strcmp(data_type, 'nn')
     legend('true boundar', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init')
 end
 
-% saveas(gcf, ['../../train/figs/pred' int2str(pred_idx) '.pdf'], 'pdf');
+% saveas(gcf, ['./figs/pred' int2str(pred_idx) '.pdf'], 'pdf');
 
