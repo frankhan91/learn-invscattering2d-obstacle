@@ -86,11 +86,11 @@ plot(src_info.xs,src_info.ys,'b.');
 plot(0, 0, 'r*');
 
 dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_' int2str(ndata)];
-if ndata>1 && ~strcmp(data_prefix, '')
+if ~strcmp(data_prefix, '')
     dirname = strcat(dirname, '_', data_prefix);
 end
-if ~exist(dirname, 'dir')
-   mkdir(dirname)
+if ndata>1 && ~exist(dirname, 'dir')
+    mkdir(dirname)
+    fname = strcat(dirname, '/forward_data.mat');
+    save(fname, 'coefs_all', 'uscat_all', 'cfg_str');
 end
-fname = strcat(dirname, '/forward_data.mat');
-save(fname, 'coefs_all', 'uscat_all', 'cfg_str');

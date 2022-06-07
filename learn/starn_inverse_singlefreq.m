@@ -5,9 +5,15 @@ close all
 clearvars
 
 data_type = 'nn'; % 'random' or 'nn';
-cfg_path = './configs/nc3.json';
-cfg = jsondecode(fileread(cfg_path));
 pred_path = './data/star3_kh10_100/test_pred.mat';
+nn_pred = load(pred_path);
+if strcmp(data_type, 'nn')
+    cfg_str = nn_pred.cfg_str;
+elseif strcmp(data_type, 'random')
+    cfg_path = './configs/nc3.json';
+    cfg_str = fileread(cfg_path);
+end
+cfg = jsondecode(cfg_str);
 
 n  = 300;
 
@@ -57,7 +63,6 @@ sensor_info.t_dir = t_dir_grid;
 if strcmp(data_type, 'random')
     coef = sample_fc(cfg, 1);
 elseif strcmp(data_type, 'nn')
-    nn_pred = load(pred_path);
     pred_idx = 1;
     coef = nn_pred.coef_val(pred_idx, :);
     coef_pred = nn_pred.coef_pred(pred_idx, :);
