@@ -6,7 +6,9 @@ close all
 clearvars
 
 cfg_path = './configs/nc3.json';
-cfg = jsondecode(fileread(cfg_path));
+data_prefix = '';
+cfg_str = fileread(cfg_path);
+cfg = jsondecode(cfg_str);
 n  = 300;
 
 ndata = cfg.ndata;
@@ -83,5 +85,12 @@ hold on
 plot(src_info.xs,src_info.ys,'b.');
 plot(0, 0, 'r*');
 
-% fname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_' int2str(ndata) '/forward_data.mat'];
-% save(fname, 'coefs_all', 'uscat_all');
+dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_' int2str(ndata)];
+if ~strcmp(data_prefix, '')
+    dirname = strcat(dirname, '_', data_prefix);
+end
+if ~exist(dirname, 'dir')
+   mkdir(dirname)
+end
+fname = strcat(dirname, '/forward_data.mat');
+save(fname, 'coefs_all', 'uscat_all', 'cfg_str');

@@ -7,7 +7,7 @@ clearvars
 data_type = 'nn'; % 'random' or 'nn';
 cfg_path = './configs/nc3.json';
 cfg = jsondecode(fileread(cfg_path));
-pred_path = './data/star3_kh10_100/pred.mat';
+pred_path = './data/star3_kh10_100/test_pred.mat';
 
 n  = 300;
 
