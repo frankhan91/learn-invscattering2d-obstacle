@@ -86,7 +86,7 @@ plot(src_info.xs,src_info.ys,'b.');
 plot(0, 0, 'r*');
 
 dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_' int2str(ndata)];
-if ~strcmp(data_prefix, '')
+if ndata>1 && ~strcmp(data_prefix, '')
     dirname = strcat(dirname, '_', data_prefix);
 end
 if ~exist(dirname, 'dir')

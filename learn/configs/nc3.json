@@ -1,6 +1,6 @@
 {
     "nc": 3,
-    "dist_type": "uniform_square",
+    "dist_type": "uniform_radius",
     "fc_cst_range": [1, 1.2],
     "fc_max": 0.3,
     "ndata": 100,
