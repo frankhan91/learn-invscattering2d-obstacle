@@ -1,0 +1,18 @@
+name: invscatnn
+channels:
+  - defaults
+  - pytorch
+dependencies:
+  - python=3.8
+  - pytorch=1.10.0
+  - cudatoolkit
+  - numpy
+  - scipy
+  - matplotlib
+  - jupyterlab
+  - tensorboard
+  - pip
+  - pip:
+    - torchsummary
+    - argparse
+    - setuptools==59.5.0
