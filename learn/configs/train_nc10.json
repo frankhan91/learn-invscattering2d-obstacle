@@ -1,0 +1,9 @@
+{
+    "seed": 123,
+    "batch_size": 40,
+    "epoch": 1600,
+    "valid_freq": 10,
+    "optimizer": "SGD",
+    "lr": 0.04,
+    "momentum": 0.9
+}
