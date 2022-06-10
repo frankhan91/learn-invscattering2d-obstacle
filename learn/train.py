@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dirname", default="./data/star3_kh10_100", type=str)
-    parser.add_argument("--expname", default="test", type=str)
+    parser.add_argument("--model_name", default="test", type=str)
     parser.add_argument("--cfgpath", default=None, type=str)
     args = parser.parse_args()
     if args.cfgpath is None:
@@ -77,7 +77,7 @@ def main():
             return x
 
     loss_fn = nn.MSELoss()
-    log_dir=os.path.join(args.dirname, args.expname)
+    log_dir=os.path.join(args.dirname, args.model_name)
     writer = SummaryWriter(log_dir)
 
     def train(model, device, train_loader, optimizer, epoch):
@@ -116,15 +116,15 @@ def main():
     writer.close()
 
     scipy.io.savemat(
-        os.path.join(args.dirname, "{}_pred.mat".format(args.expname)),
+        os.path.join(args.dirname, "{}_pred.mat".format(args.model_name)),
         {
             "coef_val": coef_val.numpy().astype('float64'),
             "coef_pred": coef_pred.detach().numpy().astype('float64'),
             "cfg_str": data["cfg_str"][0]
         }
     )
-    torch.save(model.state_dict(), os.path.join(args.dirname, "{}.pt".format(args.expname)))
-    np.save("std.npy", std)
+    torch.save(model.state_dict(), os.path.join(args.dirname, args.model_name, "{}.pt".format(args.model_name)))
+    np.save(os.path.join(args.dirname ,"std.npy"), std)
 
 if __name__ == '__main__':
     main()

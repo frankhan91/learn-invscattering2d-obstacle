@@ -13,24 +13,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
 
-directory = os.getcwd()
-print("The current directory is ",directory)
+# TODO: add config for both data and predictor
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_dir", default="./data/star3_kh10_100", type=str)
+    parser.add_argument("--data_name", default="data_to_predict.mat", type=str)
+    # model dir is in data dir
+    parser.add_argument("--model_name", default="test", type=str)
+    # add config because nc is needed to define ConvNet
+    parser.add_argument("--cfgpath", default="./configs/nc3.json", type=str)
+    args = parser.parse_args()
+    f = open(args.cfgpath)
+    cfg = json.load(f)
+    nc = cfg['nc']
+    global n_coefs
+    n_coefs = 2 * nc + 1
+    f.close()
+    return args
 
-# load the scattered data at target and also json file
-# TODO: make it to config later for both data and predictor
-data_dir = "./data/star3_kh10_2/" #the / at last is important
-data_name = "forward_data"
-fname = os.path.join(data_dir, data_name+'.mat')
-data = scipy.io.loadmat(fname)
-std = np.load("std.npy")
-
-# load the predictor
-predictor_dir = "./data/star3_kh10_100/"
-predictor_name = "test.pt"
-predictor = os.path.join(predictor_dir, predictor_name)
-saved_parameter = torch.load(predictor)
-nc = 3
-n_coefs = 2*nc+1 # TODO: change it
 class ConvNet(nn.Module):
     def __init__(self):
         # TODO: construct network from config rather than hardcoded to test different architecture easily
@@ -53,19 +53,34 @@ class ConvNet(nn.Module):
         x = self.fc3(x)
         return x
 
-loaded_net = ConvNet()
-loaded_net.load_state_dict(torch.load(predictor))
-loaded_net = loaded_net
+def main():
+    args = parse_args()
+    model_dir = os.path.join(args.data_dir, args.model_name)
+    
+    # load data
+    fname = os.path.join(args.data_dir, args.data_name)
+    data = scipy.io.loadmat(fname)
+    std = np.load(os.path.join(args.data_dir, "std.npy"))
+    
+    #load predictor
+    predictor_name = args.model_name + ".pt"
+    predictor = os.path.join(model_dir, predictor_name)
+    loaded_net = ConvNet()
+    loaded_net.load_state_dict(torch.load(predictor))
+    loaded_net = loaded_net
+    
+    # apply the predictor to obtian an initialization
+    uscat_all = data["uscat_all"].real / std # the scattered data
+    n_sample, n_dir, n_theta = np.shape(uscat_all)
+    uscat_all = torch.from_numpy(uscat_all.reshape(n_sample,1,n_dir,n_theta))
+    uscat_all = uscat_all.float()
+    coef_pred = loaded_net(uscat_all)
+    
+    # save the Fourier coefficients
+    scipy.io.savemat(
+        os.path.join(model_dir, "predicted_coefs.mat"),
+        {"coef_pred": coef_pred.detach().numpy().astype('float64')}
+    )
 
-# apply the predictor to obtian an initialization
-uscat_all = data["uscat_all"].real / std # the scattered data
-n_sample, n_dir, n_theta = np.shape(uscat_all)
-uscat_all = torch.from_numpy(uscat_all.reshape(n_sample,1,n_dir,n_theta))
-uscat_all = uscat_all.float()
-coef_pred = loaded_net(uscat_all)
-
-# save the Fourier coefficients 
-scipy.io.savemat(
-    os.path.join(data_dir, "{}_pred.mat".format(data_name)),
-    {"coef_pred": coef_pred.detach().numpy().astype('float64')}
-)
+if __name__ == '__main__':
+    main()
