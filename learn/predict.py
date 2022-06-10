@@ -76,9 +76,14 @@ def main():
     uscat_all = uscat_all.float()
     coef_pred = loaded_net(uscat_all)
     
+    # allow data_name to have ".mat" or not, both fine
+    if args.data_name[-4:] == ".mat":
+        d_name = args.data_name[:-4]
+    else:
+        d_name = args.data_name
     # save the Fourier coefficients
     scipy.io.savemat(
-        os.path.join(model_dir, "predicted_coefs.mat"),
+        os.path.join(model_dir, "{}_predby_{}.mat".format(d_name, args.model_name)),
         {"coef_pred": coef_pred.detach().numpy().astype('float64')}
     )
 
