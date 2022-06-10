@@ -13,23 +13,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
 
-# TODO: figure out directory problem
 directory = os.getcwd()
 print("The current directory is ",directory)
 
-# load the scattered data at target
+# load the scattered data at target and also json file
 # TODO: make it to config later for both data and predictor
 data_dir = "./data/star3_kh10_2/" #the / at last is important
-data_name = "forward_data.mat"
-fname = os.path.join(data_dir, data_name)
+data_name = "forward_data"
+fname = os.path.join(data_dir, data_name+'.mat')
 data = scipy.io.loadmat(fname)
+std = np.load("std.npy")
 
 # load the predictor
 predictor_dir = "./data/star3_kh10_100/"
 predictor_name = "test.pt"
 predictor = os.path.join(predictor_dir, predictor_name)
 saved_parameter = torch.load(predictor)
-n_coefs = 7 # TODO: change it
+nc = 3
+n_coefs = 2*nc+1 # TODO: change it
 class ConvNet(nn.Module):
     def __init__(self):
         # TODO: construct network from config rather than hardcoded to test different architecture easily
@@ -52,21 +53,19 @@ class ConvNet(nn.Module):
         x = self.fc3(x)
         return x
 
-loaded_net = ConvNet()#.to(device)
+loaded_net = ConvNet()
 loaded_net.load_state_dict(torch.load(predictor))
+loaded_net = loaded_net
 
 # apply the predictor to obtian an initialization
-
-uscat_all = data["uscat_all"].real # the scattered data
-# uscat_all = np.double(uscat_all)
-# uscat_all = uscat_all.astype(np.double)
+uscat_all = data["uscat_all"].real / std # the scattered data
 n_sample, n_dir, n_theta = np.shape(uscat_all)
 uscat_all = torch.from_numpy(uscat_all.reshape(n_sample,1,n_dir,n_theta))
-# uscat_all = torch.DoubleTensor(uscat_all)
-pred = loaded_net(uscat_all)
-# std = model['std'].detach().numpy()
-# uscat_all /= std
-
-
+uscat_all = uscat_all.float()
+coef_pred = loaded_net(uscat_all)
 
 # save the Fourier coefficients 
+scipy.io.savemat(
+    os.path.join(data_dir, "{}_pred.mat".format(data_name)),
+    {"coef_pred": coef_pred.detach().numpy().astype('float64')}
+)

@@ -65,7 +65,6 @@ def main():
             self.fc1 = nn.Linear(4 * 12 * 12, 256)
             self.fc2 = nn.Linear(256, 128)
             self.fc3 = nn.Linear(128, n_coefs)
-            # self.std = torch.nn.Parameter(torch.tensor(std))
 
         def forward(self, x):
             x = F.relu(self.conv1(x))
@@ -125,6 +124,7 @@ def main():
         }
     )
     torch.save(model.state_dict(), os.path.join(args.dirname, "{}.pt".format(args.expname)))
+    np.save("std.npy", std)
 
 if __name__ == '__main__':
     main()
