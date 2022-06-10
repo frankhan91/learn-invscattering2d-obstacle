@@ -38,7 +38,9 @@ def main():
     coefs_all = data["coefs_all"]
     uscat_all = data["uscat_all"].real
     # TODO: need to save std in order to re-evaluate
-    uscat_all = uscat_all[:, None, :, :] / np.std(uscat_all)
+    print("The mean value is", np.mean(uscat_all))
+    std = np.std(uscat_all)
+    uscat_all = uscat_all[:, None, :, :] / std
     data_cfg = json.loads(data["cfg_str"][0])
 
     dataset = torch.utils.data.TensorDataset(
@@ -63,6 +65,7 @@ def main():
             self.fc1 = nn.Linear(4 * 12 * 12, 256)
             self.fc2 = nn.Linear(256, 128)
             self.fc3 = nn.Linear(128, n_coefs)
+            # self.std = torch.nn.Parameter(torch.tensor(std))
 
         def forward(self, x):
             x = F.relu(self.conv1(x))
