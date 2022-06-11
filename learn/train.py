@@ -5,7 +5,6 @@ import numpy as np
 import scipy.io
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 import network
@@ -14,9 +13,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dirname", default="./data/star3_kh10_100", type=str)
     parser.add_argument("--model_name", default="test", type=str)
-    parser.add_argument("--cfgpath_train", default=None, type=str)
+    parser.add_argument("--train_cfg_path", default=None, type=str)
     args = parser.parse_args()
-    if args.cfgpath_train is None:
+    if args.train_cfg_path is None:
         dirname = os.path.basename(args.dirname)
         ncstr = dirname.split('_')[0]
         if ncstr.startswith("star"):
@@ -25,8 +24,8 @@ def parse_args():
             except ValueError:
                 print("Error: cannot get the default training config path from dirname.")
                 raise
-        args.cfgpath_train = "./configs/train_nc{}.json".format(nc)
-    f = open(args.cfgpath_train)
+        args.train_cfg_path = "./configs/train_nc{}.json".format(nc)
+    f = open(args.train_cfg_path)
     train_cfg = json.load(f)
     f.close()
     return args, train_cfg
@@ -107,7 +106,7 @@ def main():
     f = open(os.path.join(model_dir, "std.txt"), 'w')
     f.writelines(f"{std}\n")
     f.close()
-    g = open(os.path.join(model_dir, "config.json"), 'w')
+    g = open(os.path.join(model_dir, "data_config.json"), 'w')
     json.dump(data_cfg, g)
     g.close()
     
