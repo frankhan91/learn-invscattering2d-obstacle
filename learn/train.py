@@ -13,19 +13,19 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dirname", default="./data/star3_kh10_100", type=str)
     parser.add_argument("--model_name", default="test", type=str)
-    parser.add_argument("--cfgpath", default=None, type=str)
+    parser.add_argument("--cfgpath_train", default=None, type=str)
     args = parser.parse_args()
-    if args.cfgpath is None:
+    if args.cfgpath_train is None:
         dirname = os.path.basename(args.dirname)
         ncstr = dirname.split('_')[0]
         if ncstr.startswith("star"):
             try:
                 nc = int(ncstr[4:])
             except ValueError:
-                print("Error: cannot get the default config path from dirname.")
+                print("Error: cannot get the default training config path from dirname.")
                 raise
-        args.cfgpath = "./configs/train_nc{}.json".format(nc)
-    f = open(args.cfgpath)
+        args.cfgpath_train = "./configs/train_nc{}.json".format(nc)
+    f = open(args.cfgpath_train)
     train_cfg = json.load(f)
     f.close()
     return args, train_cfg
@@ -123,8 +123,14 @@ def main():
             "cfg_str": data["cfg_str"][0]
         }
     )
-    torch.save(model.state_dict(), os.path.join(args.dirname, args.model_name, "{}.pt".format(args.model_name)))
-    np.save(os.path.join(args.dirname ,"std.npy"), std)
-
+    model_dir = os.path.join(args.dirname, args.model_name)
+    torch.save(model.state_dict(), os.path.join(model_dir, "model.pt"))
+    f = open(os.path.join(model_dir, "std.txt"), 'w')
+    f.writelines(f"{std}\n")
+    f.close()
+    g = open(os.path.join(model_dir, "config.json"), 'w')
+    json.dump(data_cfg, g)
+    g.close()
+    
 if __name__ == '__main__':
     main()

@@ -16,14 +16,10 @@ import torch.utils.data
 # TODO: add config for both data and predictor
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", default="./data/star3_kh10_100", type=str)
-    parser.add_argument("--data_name", default="data_to_predict.mat", type=str)
-    # model dir is in data dir
-    parser.add_argument("--model_name", default="test", type=str)
-    # add config because nc is needed to define ConvNet
-    parser.add_argument("--cfgpath", default="./configs/nc3.json", type=str)
+    parser.add_argument("--data_path", default="./data/star3_kh10_100/data_to_predict.mat", type=str)
+    parser.add_argument("--model_path", default="./data/star3_kh10_100/test", type=str)
     args = parser.parse_args()
-    f = open(args.cfgpath)
+    f = open(os.path.join(args.model_path, "config.json"))
     cfg = json.load(f)
     nc = cfg['nc']
     global n_coefs
@@ -55,19 +51,16 @@ class ConvNet(nn.Module):
 
 def main():
     args = parse_args()
-    model_dir = os.path.join(args.data_dir, args.model_name)
     
     # load data
-    fname = os.path.join(args.data_dir, args.data_name)
-    data = scipy.io.loadmat(fname)
-    std = np.load(os.path.join(args.data_dir, "std.npy"))
+    data = scipy.io.loadmat(args.data_path)
+    f = open(os.path.join(args.model_path, "std.txt"))
+    std = f.read()
+    std = float(std)
     
     #load predictor
-    predictor_name = args.model_name + ".pt"
-    predictor = os.path.join(model_dir, predictor_name)
     loaded_net = ConvNet()
-    loaded_net.load_state_dict(torch.load(predictor))
-    loaded_net = loaded_net
+    loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt")))
     
     # apply the predictor to obtian an initialization
     uscat_all = data["uscat_all"].real / std # the scattered data
@@ -76,14 +69,14 @@ def main():
     uscat_all = uscat_all.float()
     coef_pred = loaded_net(uscat_all)
     
-    # allow data_name to have ".mat" or not, both fine
-    if args.data_name[-4:] == ".mat":
-        d_name = args.data_name[:-4]
-    else:
-        d_name = args.data_name
-    # save the Fourier coefficients
+    idx = args.data_path.rfind("/")
+    data_name = args.data_path[idx+1:]
+    if data_name[-4:] == ".mat":
+        data_name = data_name[:-4]
+    idx = args.model_path.rfind("/")
+    model_name = args.model_path[idx+1:]
     scipy.io.savemat(
-        os.path.join(model_dir, "{}_predby_{}.mat".format(d_name, args.model_name)),
+        os.path.join(args.model_path, "{}_predby_{}.mat".format(data_name, model_name)),
         {"coef_pred": coef_pred.detach().numpy().astype('float64')}
     )
 
