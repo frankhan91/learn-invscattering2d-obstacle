@@ -18,7 +18,9 @@ def parse_args():
     parser.add_argument("--data_path", default="./data/star3_kh10_100/forward_data.mat", type=str)
     parser.add_argument("--model_path", default="./data/star3_kh10_100/test", type=str)
     args = parser.parse_args()
+
     f = open(os.path.join(args.model_path, "data_config.json"))
+
     cfg = json.load(f)
     nc = cfg['nc']
     global n_coefs
@@ -51,7 +53,9 @@ def main():
         new_data_path = args.data_path[:-4]
     else:
         new_data_path = args.data_path
+
     model_name = os.path.basename(os.path.normpath(args.model_path))
+
     scipy.io.savemat(
         new_data_path + "_predby_" + model_name + ".mat",
         {"coef_pred": coef_pred.detach().numpy().astype('float64')}
