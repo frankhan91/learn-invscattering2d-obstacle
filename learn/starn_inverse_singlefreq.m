@@ -8,6 +8,7 @@ data_type = 'nn'; % 'random' or 'nn_stored' or 'nn';
 pred_path = './data/star3_kh10_100/test_pred.mat';
 model_name = 'test'; % only for 'nn'
 ndata_needed = 2; % only for 'nn', should be smaller than ndata
+
 nn_pred = load(pred_path);
 if strcmp(data_type, 'nn_stored')
     cfg_str = nn_pred.cfg_str;
