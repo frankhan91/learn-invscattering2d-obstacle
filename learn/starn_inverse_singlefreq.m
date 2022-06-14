@@ -4,17 +4,19 @@
 close all
 clearvars
 
-data_type = 'nn'; % 'random' or 'nn';
+data_type = 'nn'; % 'random' or 'nn_stored' or 'nn';
 pred_path = './data/star3_kh10_100/test_pred.mat';
+model_name = 'test'; % only for 'nn'
+ndata_needed = 2; % only for 'nn', should be smaller than ndata
 nn_pred = load(pred_path);
-if strcmp(data_type, 'nn')
+if strcmp(data_type, 'nn_stored')
     cfg_str = nn_pred.cfg_str;
-elseif strcmp(data_type, 'random')
-    cfg_path = './configs/nc3.json';
+elseif strcmp(data_type, 'random') || strcmp(data_type, 'nn')
+    cfg_path = './configs/nc3.json'; 
     cfg_str = fileread(cfg_path);
 end
 cfg = jsondecode(cfg_str);
-
+ndata = cfg.ndata;
 n  = 300;
 
 % max number of wiggles
@@ -59,18 +61,41 @@ sensor_info.t_dir = t_dir_grid;
 
 % parameters 'a'
 
-
+nppw = 20;
 if strcmp(data_type, 'random')
     coef = sample_fc(cfg, 1);
 elseif strcmp(data_type, 'nn')
+    % generate new scattered data and predict coef using nn
+    coefs_all = sample_fc(cfg);
+    coefs_all = coefs_all(1:ndata_needed,:);
+    uscat_all = zeros(ndata_needed, n_dir, n_tgt);
+    for idx=1:ndata_needed
+        coefs = coefs_all(idx, :)';
+        src_info = geometries.starn(coefs,nc,n);
+        L = src_info.L;
+        for ik=1:nk
+           n = ceil(nppw*L*abs(kh(ik))/2/pi);
+           n = max(n,300);
+           src_info = geometries.starn(coefs,nc,n);
+           [mats,erra] = rla.get_fw_mats(kh(ik),src_info,bc,sensor_info,opts);
+           fields = rla.compute_fields(kh(ik),src_info,mats,sensor_info,bc,opts);
+        end
+        uscat_all(idx, :, :) = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
+    end
+    dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_' int2str(ndata)];
+    temp_pred_path = strcat(dirname, '/temp.mat');
+    save(temp_pred_path, 'coefs_all', 'uscat_all', 'cfg_str');
+    system(strcat('C:\Users\mozho\anaconda3\envs\invscatnn\python predict.py --data_path=', temp_pred_path))
+    predicted_path = strcat(dirname, '/temp_predby_', model_name, '.mat');
+    nn_pred = load(predicted_path);
+end
+
+if strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     pred_idx = 1;
     coef = nn_pred.coef_val(pred_idx, :);
     coef_pred = nn_pred.coef_pred(pred_idx, :);
     src_info_pred = geometries.starn(coef_pred,nc,n);
 end
-
-nppw = 20;
-
 
 src_info_ex = geometries.starn(coef,nc,n);
 L = src_info_ex.L;
@@ -118,7 +143,7 @@ plot(0, 0, 'r*');
 
 if strcmp(data_type, 'random')
     legend('true boundary', 'boundary solved by default init')
-elseif strcmp(data_type, 'nn')
+elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     [inv_data_all_pred,src_info_out_pred] = rla.rla_inverse_solver(u_meas,bc,...
                           optim_opts,opts,src_info_pred);
     iter_count = inv_data_all_pred{1}.iter_count;
