@@ -14,7 +14,6 @@ class ConvNet(nn.Module):
         self.fc1 = nn.Linear(4 * 12 * 12, 256)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, n_coefs)
-        # self.std = 0
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
