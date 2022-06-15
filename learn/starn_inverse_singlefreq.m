@@ -5,17 +5,25 @@ close all
 clearvars
 
 data_type = 'nn'; % 'random' or 'nn_stored' or 'nn';
-pred_path = './data/star3_kh10_100/valid_predby_test.mat';
-model_name = 'test'; % only for 'nn'
 env_path = readlines('env_path.txt');
 env_path = env_path(1); % only read the first line
 
-nn_pred = load(pred_path);
 if strcmp(data_type, 'nn_stored')
+    % CAREFUL: need to enter manually
+    pred_path = './data/star10_kh10_1000/valid_predby_test.mat'; 
+    nn_pred = load(pred_path);
     cfg_str = nn_pred.cfg_str;
-elseif strcmp(data_type, 'random') || strcmp(data_type, 'nn')
+elseif strcmp(data_type, 'random')
+    % CAREFUL: need to enter manually
     cfg_path = './configs/nc3.json';
     cfg_str = fileread(cfg_path);
+elseif strcmp(data_type, 'nn')
+    % CAREFUL: need to enter manually
+    model_path = './data/star10_kh10_1000/test';
+    cfg_path = strcat(model_path, '/data_config.json');
+    cfg_str = fileread(cfg_path);
+    idx = strfind(model_path, '/');
+    model_name=model_path(idx(end)+1:end);
 end
 cfg = jsondecode(cfg_str);
 ndata = cfg.ndata;
@@ -92,7 +100,8 @@ if strcmp(data_type, 'nn')
     coefs_all = coef;
     uscat_all = reshape(fields.uscat_tgt, [1,n_dir, n_tgt]);
     save(temp_pred_path, 'coefs_all', 'uscat_all', 'cfg_str');
-    system(strcat(env_path, ' predict.py --data_path=', temp_pred_path))
+    system(strcat(env_path, ' predict.py --data_path=', temp_pred_path,...
+        ' --model_path=', model_path))
     predicted_path = strcat(dirname, '/temp_predby_', model_name, '.mat');
     nn_pred = load(predicted_path);
     coef_pred = nn_pred.coef_pred(1, :);
@@ -129,7 +138,7 @@ figure
 hold on
 plot(src_info_ex.xs,src_info_ex.ys,'k.', 'MarkerSize', 12);
 plot(src_info_default_res.xs,src_info_default_res.ys,'b--', 'LineWidth',2);
-plot(0, 0, 'r*');
+%plot(0, 0, 'r*');
 
 if strcmp(data_type, 'random')
     legend('true boundary', 'boundary solved by default init')
