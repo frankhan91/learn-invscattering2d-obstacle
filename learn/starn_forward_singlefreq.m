@@ -5,7 +5,7 @@
 close all
 clearvars
 
-cfg_path = './configs/nc10.json';
+cfg_path = './configs/nc3.json';
 data_prefix = '';
 cfg_str = fileread(cfg_path);
 cfg = jsondecode(cfg_str);

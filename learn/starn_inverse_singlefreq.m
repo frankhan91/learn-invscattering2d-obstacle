@@ -10,7 +10,7 @@ env_path = env_path(1); % only read the first line
 
 if strcmp(data_type, 'nn_stored')
     % CAREFUL: need to enter manually
-    pred_path = './data/star10_kh10_1000/valid_predby_test.mat'; 
+    pred_path = './data/star3_kh10_100/valid_predby_test.mat'; 
     nn_pred = load(pred_path);
     cfg_str = nn_pred.cfg_str;
 elseif strcmp(data_type, 'random')
@@ -19,11 +19,12 @@ elseif strcmp(data_type, 'random')
     cfg_str = fileread(cfg_path);
 elseif strcmp(data_type, 'nn')
     % CAREFUL: need to enter manually
-    model_path = './data/star10_kh10_1000/test';
+    % the model_path should not end with '/'
+    model_path = './data/star3_kh10_100/test';
     cfg_path = strcat(model_path, '/data_config.json');
     cfg_str = fileread(cfg_path);
     idx = strfind(model_path, '/');
-    model_name=model_path(idx(end)+1:end);
+    model_name = model_path(idx(end)+1:end);
 end
 cfg = jsondecode(cfg_str);
 ndata = cfg.ndata;
@@ -138,10 +139,10 @@ figure
 hold on
 plot(src_info_ex.xs,src_info_ex.ys,'k.', 'MarkerSize', 12);
 plot(src_info_default_res.xs,src_info_default_res.ys,'b--', 'LineWidth',2);
-%plot(0, 0, 'r*');
 
 if strcmp(data_type, 'random')
-    legend('true boundary', 'boundary solved by default init')
+    plot(0, 0, 'r*');
+    legend('true boundary', 'boundary solved by default init', 'the origin')
 elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     [inv_data_all_pred,src_info_out_pred] = rla.rla_inverse_solver(u_meas,bc,...
                           optim_opts,opts,src_info_pred);
@@ -149,8 +150,7 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     src_info_pred_res = inv_data_all_pred{1}.src_info_all{iter_count};
     plot(src_info_pred.xs,src_info_pred.ys,'r:', 'LineWidth',2);
     plot(src_info_pred_res.xs,src_info_pred_res.ys,'m-.', 'LineWidth',2);
-    legend('true boundary', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init')
+    plot(0, 0, 'r*');
+    legend('true boundary', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init', 'the origin')
 end
-
 % saveas(gcf, ['./figs/pred' int2str(pred_idx) '.pdf'], 'pdf');
-
