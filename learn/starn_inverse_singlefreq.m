@@ -142,7 +142,7 @@ plot(src_info_default_res.xs,src_info_default_res.ys,'b--', 'LineWidth',2);
 
 if strcmp(data_type, 'random')
     plot(0, 0, 'r*');
-    legend('true boundary', 'boundary solved by default init', 'the origin')
+    legend('true boundary', 'boundary solved by default init', '')
 elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     [inv_data_all_pred,src_info_out_pred] = rla.rla_inverse_solver(u_meas,bc,...
                           optim_opts,opts,src_info_pred);
@@ -151,6 +151,6 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     plot(src_info_pred.xs,src_info_pred.ys,'r:', 'LineWidth',2);
     plot(src_info_pred_res.xs,src_info_pred_res.ys,'m-.', 'LineWidth',2);
     plot(0, 0, 'r*');
-    legend('true boundary', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init', 'the origin')
+    legend('true boundary', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init', '')
 end
 % saveas(gcf, ['./figs/pred' int2str(pred_idx) '.pdf'], 'pdf');
