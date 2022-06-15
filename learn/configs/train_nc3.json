@@ -5,5 +5,7 @@
     "valid_freq": 10,
     "optimizer": "SGD",
     "lr": 0.03,
-    "momentum": 0.9
+    "momentum": 0.9,
+    "milestones": [500],
+    "gamma": 1
 }

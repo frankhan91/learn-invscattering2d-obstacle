@@ -6,6 +6,7 @@ import scipy.io
 import torch
 import torch.nn as nn
 import torch.utils.data
+from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.tensorboard import SummaryWriter
 import network
 
@@ -62,7 +63,7 @@ def main():
     log_dir=os.path.join(args.dirname, args.model_name)
     writer = SummaryWriter(log_dir)
 
-    def train(model, device, train_loader, optimizer, epoch):
+    def train(model, device, train_loader, optimizer, epoch, scheduler):
         for e in range(epoch):
             n_loss = 0
             current_loss = 0.0
@@ -84,6 +85,7 @@ def main():
                 )
                 writer.add_scalar('loss_train', loss_train, e)
                 writer.add_scalar('loss_val', loss_val, e)
+            scheduler.step()
         return
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -92,8 +94,9 @@ def main():
     if train_cfg["optimizer"] == "SGD":
         optimizer = torch.optim.SGD(model.parameters(), lr=train_cfg["lr"], momentum=train_cfg["momentum"])
     epoch = train_cfg["epoch"]
+    scheduler = MultiStepLR(optimizer, milestones=train_cfg["milestones"], gamma=train_cfg["gamma"])
     # TODO: add functionality to re-train
-    train(model, device, train_loader, optimizer, epoch)
+    train(model, device, train_loader, optimizer, epoch, scheduler)
     coef_pred = model(uscat_val)
     writer.close()
 
