@@ -98,7 +98,7 @@ def main():
     writer.close()
 
     scipy.io.savemat(
-        os.path.join(args.dirname, "{}_pred.mat".format(args.model_name)),
+        os.path.join(args.dirname, "valid_predby_{}.mat".format(args.model_name)),
         {
             "coef_val": coef_val.numpy().astype('float64'),
             "coef_pred": coef_pred.detach().numpy().astype('float64'),

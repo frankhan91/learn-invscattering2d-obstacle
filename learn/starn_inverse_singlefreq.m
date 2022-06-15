@@ -5,15 +5,16 @@ close all
 clearvars
 
 data_type = 'nn'; % 'random' or 'nn_stored' or 'nn';
-pred_path = './data/star3_kh10_100/test_pred.mat';
+pred_path = './data/star3_kh10_100/valid_predby_test.mat';
 model_name = 'test'; % only for 'nn'
 env_path = readlines('env_path.txt');
+env_path = env_path(1); % only read the first line
 
 nn_pred = load(pred_path);
 if strcmp(data_type, 'nn_stored')
     cfg_str = nn_pred.cfg_str;
 elseif strcmp(data_type, 'random') || strcmp(data_type, 'nn')
-    cfg_path = './configs/nc3.json'; 
+    cfg_path = './configs/nc3.json';
     cfg_str = fileread(cfg_path);
 end
 cfg = jsondecode(cfg_str);
@@ -80,7 +81,6 @@ for ik=1:nk
    n = ceil(nppw*L*abs(kh(ik))/2/pi);
    n = max(n,300);
    src_info_ex = geometries.starn(coef,nc,n);
-    
    [mats,erra] = rla.get_fw_mats(kh(ik),src_info_ex,bc,sensor_info,opts);
    fields = rla.compute_fields(kh(ik),src_info_ex,mats,sensor_info,bc,opts);
 end
@@ -90,15 +90,12 @@ if strcmp(data_type, 'nn')
     dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_' int2str(ndata)];
     temp_pred_path = strcat(dirname, '/temp.mat');
     coefs_all = coef;
-    uscat_all = fields.uscat_tgt;
-    uscat_all = reshape(uscat_all, [1,n_dir, n_tgt]);
+    uscat_all = reshape(fields.uscat_tgt, [1,n_dir, n_tgt]);
     save(temp_pred_path, 'coefs_all', 'uscat_all', 'cfg_str');
     system(strcat(env_path, ' predict.py --data_path=', temp_pred_path))
     predicted_path = strcat(dirname, '/temp_predby_', model_name, '.mat');
     nn_pred = load(predicted_path);
-    pred_idx = 1;
-    coef = nn_pred.coef_val(pred_idx, :);
-    coef_pred = nn_pred.coef_pred(pred_idx, :);
+    coef_pred = nn_pred.coef_pred(1, :);
     src_info_pred = geometries.starn(coef_pred,nc,n);
 end
 

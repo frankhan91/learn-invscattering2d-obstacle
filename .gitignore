@@ -3,6 +3,7 @@
 */figs
 */ipynb
 .DS_Store
+learn/env_path.txt
 *.a
 *.o
 *mex*
