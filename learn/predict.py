@@ -58,7 +58,9 @@ def main():
 
     scipy.io.savemat(
         new_data_path + "_predby_" + model_name + ".mat",
-        {"coef_pred": coef_pred.detach().numpy().astype('float64')}
+        {"coef_pred": coef_pred.detach().numpy().astype('float64'),
+         "coef_val": data["coefs_all"],
+         "cfg_str": data["cfg_str"][0]}
     )
 
 if __name__ == '__main__':
