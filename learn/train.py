@@ -79,7 +79,7 @@ def main():
             if e % train_cfg["valid_freq"] == 0:
                 coef_pred = model(uscat_val)
                 loss_train = current_loss / n_loss
-                loss_val = loss_fn(coef_pred, coef_val).item()
+                loss_val = loss_fn(coef_pred, coef_val.to(device)).item()
                 print('Train Epoch: {:3}, Train Loss: {:.6f}, Val loss: {:.6f}'.format(
                     e, loss_train, loss_val)
                 )
@@ -89,6 +89,7 @@ def main():
         return
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    uscat_val = uscat_val.to(device)
     model = network.ConvNet(n_coefs).to(device)
     # TODO: test performance of ADAM and other learning rates
     if train_cfg["optimizer"] == "SGD":
@@ -104,7 +105,7 @@ def main():
         os.path.join(args.dirname, "valid_predby_{}.mat".format(args.model_name)),
         {
             "coef_val": coef_val.numpy().astype('float64'),
-            "coef_pred": coef_pred.detach().numpy().astype('float64'),
+            "coef_pred": coef_pred.detach().cpu().numpy().astype('float64'),
             "cfg_str": data["cfg_str"][0]
         }
     )
