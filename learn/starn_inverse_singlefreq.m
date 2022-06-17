@@ -18,9 +18,11 @@ elseif strcmp(data_type, 'random')
     cfg_path = './configs/nc3.json';
     cfg_str = fileread(cfg_path);
 elseif strcmp(data_type, 'nn')
-    % CAREFUL: need to enter manually
+    % CAREFUL: need to enter model_path, nc_test, and noise_level manually
     % the model_path should not end with '/'
     model_path = './data/star3_kh10_100/test';
+    nc_test = 0; % use nc in cfg_path if nc_test=0
+    noise_level = 0.01;
     cfg_path = strcat(model_path, '/data_config.json');
     cfg_str = fileread(cfg_path);
     idx = strfind(model_path, '/');
@@ -77,6 +79,11 @@ if strcmp(data_type, 'random') || strcmp(data_type, 'nn')
     coef = sample_fc(cfg, 1);
 end
 
+if strcmp(data_type, 'nn') && nc_test > 0
+    % generate low freq data, test with high freq predictor
+    coef = coef .* [ones(1,nc_test+1),zeros(1,nc-nc_test), ones(1,nc_test),zeros(1,nc-nc_test)];
+end
+
 if strcmp(data_type, 'nn_stored')
     pred_idx = 1;
     coef = nn_pred.coef_val(pred_idx, :);
@@ -99,7 +106,8 @@ if strcmp(data_type, 'nn')
     dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_' int2str(ndata)];
     temp_pred_path = strcat(dirname, '/temp.mat');
     coefs_all = coef;
-    uscat_all = reshape(fields.uscat_tgt, [1,n_dir, n_tgt]);
+    noise = randn(n_dir*n_tgt, 1) * noise_level;
+    uscat_all = reshape(fields.uscat_tgt + noise, [1,n_dir, n_tgt]);
     save(temp_pred_path, 'coefs_all', 'uscat_all', 'cfg_str');
     system(strcat(env_path, ' predict.py --data_path=', temp_pred_path,...
         ' --model_path=', model_path))
@@ -112,7 +120,11 @@ end
 u_meas = cell(1,1);
 u_meas0 = [];
 u_meas0.kh = kh;
-u_meas0.uscat_tgt = fields.uscat_tgt;
+if strcmp(data_type, 'nn')
+    u_meas0.uscat_tgt = fields.uscat_tgt + noise;
+else
+    u_meas0.uscat_tgt = fields.uscat_tgt;
+end
 u_meas0.tgt = sensor_info.tgt;
 u_meas0.t_dir = sensor_info.t_dir;
 u_meas0.err_est = erra;
