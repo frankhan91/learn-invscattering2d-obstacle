@@ -22,7 +22,7 @@ elseif strcmp(data_type, 'nn')
     % the model_path should not end with '/'
     model_path = './data/star3_kh10_100/test';
     nc_test = 0; % use nc in cfg_path if nc_test=0
-    noise_level = 0.01;
+    noise_level = 0;
     cfg_path = strcat(model_path, '/data_config.json');
     cfg_str = fileread(cfg_path);
     idx = strfind(model_path, '/');
@@ -81,6 +81,9 @@ end
 
 if strcmp(data_type, 'nn') && nc_test > 0
     % generate low freq data, test with high freq predictor
+    if nc_test > nc
+        error("nc_test must be less than or equal to nc");
+    end
     coef = coef .* [ones(1,nc_test+1),zeros(1,nc-nc_test), ones(1,nc_test),zeros(1,nc-nc_test)];
 end
 
