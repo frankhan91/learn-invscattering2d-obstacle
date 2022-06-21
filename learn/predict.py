@@ -39,7 +39,10 @@ def main():
     
     #load predictor
     loaded_net = network.ConvNet(n_coefs)
-    loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt")))
+    if torch.cuda.is_available():
+        loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt")))
+    else:
+        loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt"), map_location=torch.device('cpu')))
     
     # apply the predictor to obtian an initialization
     uscat_all = data["uscat_all"].real / std # the scattered data
