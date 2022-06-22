@@ -17,6 +17,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", default="./data/star3_kh10_100/forward_data.mat", type=str)
     parser.add_argument("--model_path", default="./data/star3_kh10_100/test", type=str)
+    parser.add_argument("--print_coef", default=False, type=bool)
     args = parser.parse_args()
 
     f = open(os.path.join(args.model_path, "data_config.json"))
@@ -62,6 +63,11 @@ def main():
          "coef_val": data["coefs_all"],
          "cfg_str": data["cfg_str"][0]}
     )
+    
+    # only for inverse code with data_type=nn
+    if args.print_coef:
+        coef_pred_np = coef_pred.detach().numpy() #shape 1 x (2*nc+1)
+        [print(num) for num in coef_pred_np[0]]
 
 if __name__ == '__main__':
     main()

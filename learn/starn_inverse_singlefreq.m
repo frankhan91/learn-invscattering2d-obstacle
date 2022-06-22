@@ -112,11 +112,9 @@ if strcmp(data_type, 'nn')
     noise = randn(n_dir*n_tgt, 1) * noise_level;
     uscat_all = reshape(fields.uscat_tgt + noise, [1,n_dir, n_tgt]);
     save(temp_pred_path, 'coefs_all', 'uscat_all', 'cfg_str');
-    system(strcat(env_path, ' predict.py --data_path=', temp_pred_path,...
-        ' --model_path=', model_path))
-    predicted_path = strcat(dirname, '/temp_predby_', model_name, '.mat');
-    nn_pred = load(predicted_path);
-    coef_pred = nn_pred.coef_pred(1, :);
+    [status,cmdout] = system(strcat(env_path, ' predict.py --data_path=', temp_pred_path,...
+        ' --model_path=', model_path, ' --print_coef=True'));
+    coef_pred = str2num(cmdout)';
     src_info_pred = geometries.starn(coef_pred,nc,n);
 end
 
