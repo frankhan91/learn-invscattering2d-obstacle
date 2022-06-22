@@ -12,7 +12,7 @@ import network
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dirname", default="./data/star3_kh10_100", type=str)
+    parser.add_argument("--dirname", default="./data/star3_kh10_n48_100", type=str)
     parser.add_argument("--model_name", default="test", type=str)
 
     parser.add_argument("--train_cfg_path", default=None, type=str)
@@ -85,12 +85,14 @@ def main():
                 )
                 writer.add_scalar('loss_train', loss_train, e)
                 writer.add_scalar('loss_val', loss_val, e)
+                writer.add_scalar('log_log_loss_train', np.log(loss_train), np.log(e+1)*1000)
+                writer.add_scalar('log_log_loss_val', np.log(loss_val), np.log(e+1)*1000)
             scheduler.step()
         return
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     uscat_val = uscat_val.to(device)
-    model = network.ConvNet(n_coefs).to(device)
+    model = network.ConvNet(data_cfg, train_cfg).to(device)
     # TODO: test performance of ADAM and other learning rates
     if train_cfg["optimizer"] == "SGD":
         optimizer = torch.optim.SGD(model.parameters(), lr=train_cfg["lr"], momentum=train_cfg["momentum"])
@@ -116,9 +118,12 @@ def main():
     f.close()
 
     g = open(os.path.join(model_dir, "data_config.json"), 'w')
-
     json.dump(data_cfg, g)
     g.close()
+    
+    h = open(os.path.join(model_dir, "train_config.json"), 'w')
+    json.dump(train_cfg, h)
+    h.close()
     
 if __name__ == '__main__':
     main()

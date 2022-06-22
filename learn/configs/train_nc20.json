@@ -6,6 +6,10 @@
     "optimizer": "SGD",
     "lr": 0.16,
     "momentum": 0.9,
-    "milestones": [1000],
-    "gamma": 0.25
+    "milestones": [500, 1000],
+    "gamma": 0.5,
+    "out_channels": 6,
+    "kernel_size": 7,
+    "paddle": 3,
+    "linear_dim": [512, 128]
 }
