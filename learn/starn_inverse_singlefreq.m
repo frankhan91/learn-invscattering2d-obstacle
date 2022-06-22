@@ -166,4 +166,11 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     plot(0, 0, 'r*');
     legend('true boundary', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init', '')
 end
-% saveas(gcf, ['./figs/pred' int2str(pred_idx) '.pdf'], 'pdf');
+% w = 9;
+% h = 8;
+% set(gcf, 'PaperUnits', 'inches');
+% set(gcf, 'PaperSize', [w h]);
+% set(gcf, 'PaperPositionMode', 'manual');
+% set(gcf, 'PaperPosition', [0 0 w h]);
+% set(gcf, 'renderer', 'painters');
+% print(gcf, '-dpdf', ['./figs/pred' int2str(1) 'nc' int2str(nc) '.pdf']);
