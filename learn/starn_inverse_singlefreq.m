@@ -10,7 +10,7 @@ env_path = env_path(1); % only read the first line
 
 if strcmp(data_type, 'nn_stored')
     % CAREFUL: need to enter manually
-    pred_path = './data/star3_kh10_100/valid_predby_test.mat'; 
+    pred_path = './data/star3_kh10_n48_100/valid_predby_test.mat'; 
     nn_pred = load(pred_path);
     cfg_str = nn_pred.cfg_str;
 elseif strcmp(data_type, 'random')
@@ -20,7 +20,7 @@ elseif strcmp(data_type, 'random')
 elseif strcmp(data_type, 'nn')
     % CAREFUL: need to enter model_path, nc_test, and noise_level manually
     % the model_path should not end with '/'
-    model_path = './data/star3_kh10_100/test';
+    model_path = './data/star3_kh10_n48_100/test';
     nc_test = 0; % use nc in cfg_path if nc_test=0
     noise_level = 0;
     cfg_path = strcat(model_path, '/data_config.json');

@@ -15,22 +15,22 @@ import network
 # TODO: add config for both data and predictor
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_path", default="./data/star3_kh10_100/forward_data.mat", type=str)
-    parser.add_argument("--model_path", default="./data/star3_kh10_100/test", type=str)
+    parser.add_argument("--data_path", default="./data/star3_kh10_n48_100/forward_data.mat", type=str)
+    parser.add_argument("--model_path", default="./data/star3_kh10_n48_100/test", type=str)
     parser.add_argument("--print_coef", default=False, type=bool)
     args = parser.parse_args()
 
     f = open(os.path.join(args.model_path, "data_config.json"))
-
-    cfg = json.load(f)
-    nc = cfg['nc']
-    global n_coefs
-    n_coefs = 2 * nc + 1
+    data_cfg = json.load(f)
     f.close()
-    return args
+    
+    g = open(os.path.join(args.model_path, "train_config.json"))
+    train_cfg = json.load(g)
+    g.close()
+    return args, data_cfg, train_cfg
 
 def main():
-    args = parse_args()
+    args, data_cfg, train_cfg = parse_args()
     
     # load data
     data = scipy.io.loadmat(args.data_path)
@@ -39,7 +39,7 @@ def main():
     std = float(std)
     
     #load predictor
-    loaded_net = network.ConvNet(n_coefs)
+    loaded_net = network.ConvNet(data_cfg, train_cfg)
     if torch.cuda.is_available():
         loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt")))
     else:
