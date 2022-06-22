@@ -114,7 +114,8 @@ if strcmp(data_type, 'nn')
     save(temp_pred_path, 'coefs_all', 'uscat_all', 'cfg_str');
     [status,cmdout] = system(strcat(env_path, ' predict.py --data_path=', temp_pred_path,...
         ' --model_path=', model_path, ' --print_coef=True'));
-    coef_pred = str2num(cmdout)';
+    k = strfind(cmdout,'start to print the coefficients'); % this string has length 31
+    coef_pred = str2num(cmdout(k+32:end))';
     src_info_pred = geometries.starn(coef_pred,nc,n);
 end
 

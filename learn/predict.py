@@ -70,6 +70,7 @@ def main():
     # only for inverse code with data_type=nn
     if args.print_coef:
         coef_pred_np = coef_pred.detach().numpy() #shape 1 x (2*nc+1)
+        print("start to print the coefficients")
         [print(num) for num in coef_pred_np[0]]
 
 if __name__ == '__main__':
