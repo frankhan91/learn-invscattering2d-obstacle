@@ -8,10 +8,14 @@ import torch.nn.functional as F
 class ConvNet(nn.Module):
     def __init__(self, n_coefs):
         super().__init__()
-        self.conv1 = nn.Conv2d(1, 4, 5, padding=2, padding_mode='circular')
+        # self.conv1 = nn.Conv2d(1, 4, 5, padding=2, padding_mode='circular')
+        # self.pool = nn.AvgPool2d((2, 2), stride=(2, 2))
+        # self.conv2 = nn.Conv2d(4, 4, 5, padding=2, padding_mode='circular')
+        # self.fc1 = nn.Linear(4 * 12 * 12, 256)
+        self.conv1 = nn.Conv2d(1, 6, 7, padding=3, padding_mode='circular')
         self.pool = nn.AvgPool2d((2, 2), stride=(2, 2))
-        self.conv2 = nn.Conv2d(4, 4, 5, padding=2, padding_mode='circular')
-        self.fc1 = nn.Linear(4 * 12 * 12, 256)
+        self.conv2 = nn.Conv2d(6, 6, 7, padding=3, padding_mode='circular')
+        self.fc1 = nn.Linear(6 * 12 * 12, 256)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, n_coefs)
 
