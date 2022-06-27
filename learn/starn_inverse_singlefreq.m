@@ -106,7 +106,7 @@ end
 
 if strcmp(data_type, 'nn')
     % apply the stored predictor
-    dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_' int2str(ndata)];
+    dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_n' int2str(n_tgt) '_' int2str(ndata)];
     temp_pred_path = strcat(dirname, '/temp.mat');
     coefs_all = coef;
     noise = randn(n_dir*n_tgt, 1) * noise_level;
@@ -174,4 +174,4 @@ end
 % set(gcf, 'PaperPositionMode', 'manual');
 % set(gcf, 'PaperPosition', [0 0 w h]);
 % set(gcf, 'renderer', 'painters');
-% print(gcf, '-dpdf', ['./figs/pred' int2str(1) 'nc' int2str(nc) '.pdf']);
+% print(gcf, '-dpdf', ['./figs/prednc' int2str(nc) '_k' int2str(kh) '_' int2str(pred_idx) '.pdf']);

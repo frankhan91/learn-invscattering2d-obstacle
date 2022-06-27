@@ -31,6 +31,8 @@ def parse_args():
 
 def main():
     args, data_cfg, train_cfg = parse_args()
+    idx = args.model_path.rfind('/')
+    model_name = args.model_path[idx+1:]
     
     # load data
     data = scipy.io.loadmat(args.data_path)
@@ -39,18 +41,28 @@ def main():
     std = float(std)
     
     #load predictor
-    loaded_net = network.ConvNet(data_cfg, train_cfg)
+    if model_name == 'test':
+        loaded_net = network.ConvNet(data_cfg, train_cfg)
+    elif model_name == 'Fourier':
+        loaded_net = network.ComplexNet(data_cfg, train_cfg)
     if torch.cuda.is_available():
         loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt")))
     else:
         loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt"), map_location=torch.device('cpu')))
     
     # apply the predictor to obtian an initialization
-    uscat_all = data["uscat_all"].real / std # the scattered data
-    n_sample, n_dir, n_theta = np.shape(uscat_all)
-    uscat_all = torch.from_numpy(uscat_all.reshape(n_sample,1,n_dir,n_theta))
-    uscat_all = uscat_all.float()
-    coef_pred = loaded_net(uscat_all)
+    if model_name == 'test':
+        uscat_all = data["uscat_all"].real / std # the scattered data
+        uscat_all = torch.from_numpy(uscat_all[:, None, :, :]).float()
+        coef_pred = loaded_net(uscat_all)
+    elif model_name == 'Fourier':
+        uscat_all = data["uscat_all"]
+        uscat_ft = np.fft.fft2(uscat_all)
+        ft_real = uscat_ft.real
+        ft_imag = uscat_ft.imag
+        ft_real = torch.from_numpy(ft_real[:, None, :, :] / std).float()
+        ft_imag = torch.from_numpy(ft_imag[:, None, :, :] / std).float()
+        coef_pred = loaded_net(ft_real, ft_imag)
     
     # save predicted coef
     if args.data_path[-4:] == ".mat":
