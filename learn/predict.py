@@ -8,6 +8,7 @@ import json
 import argparse
 import numpy as np
 import scipy.io
+import scipy.fftpack as sfft
 import torch
 import torch.utils.data
 import network
@@ -57,9 +58,10 @@ def main():
         coef_pred = loaded_net(uscat_all)
     elif model_name == 'Fourier':
         uscat_all = data["uscat_all"]
-        uscat_ft = np.fft.fft2(uscat_all)
-        ft_real = uscat_ft.real
-        ft_imag = uscat_ft.imag
+        uscat_ft = sfft.fft2(uscat_all)
+        uscat_ft_shift = sfft.fftshift(uscat_ft,axes=(1,2))
+        ft_real = uscat_ft_shift.real
+        ft_imag = uscat_ft_shift.imag
         ft_real = torch.from_numpy(ft_real[:, None, :, :] / std).float()
         ft_imag = torch.from_numpy(ft_imag[:, None, :, :] / std).float()
         coef_pred = loaded_net(ft_real, ft_imag)

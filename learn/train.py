@@ -3,6 +3,7 @@ import json
 import argparse
 import numpy as np
 import scipy.io
+import scipy.fftpack as sfft
 import torch
 import torch.nn as nn
 import torch.utils.data
@@ -54,9 +55,10 @@ def main():
         )
     elif args.model_name == 'Fourier':
         uscat_all = data["uscat_all"]
-        uscat_ft = np.fft.fft2(uscat_all)
-        ft_real = uscat_ft.real
-        ft_imag = uscat_ft.imag
+        uscat_ft = sfft.fft2(uscat_all)
+        uscat_ft_shift = sfft.fftshift(uscat_ft,axes=(1,2))
+        ft_real = uscat_ft_shift.real
+        ft_imag = uscat_ft_shift.imag
         
         print("The mean values are", np.mean(ft_real), np.mean(ft_imag))
         std_r = np.std(ft_real)

@@ -141,6 +141,7 @@ bc.type = 'Dirichlet';
 bc.invtype = 'o';
 optim_opts.optim_type = cfg.optim_type;
 optim_opts.filter_type = cfg.filter_type;
+%optim_opts.eps_curv = 0.3;
 %optim_opts.eps_res = 1e-10;
 %optim_opts.eps_upd = 1e-10;
 opts.store_src_info = true;
