@@ -14,7 +14,7 @@ import network
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dirname", default="./data/star3_kh10_n48_100", type=str)
-    parser.add_argument("--model_name", default="Fourier", type=str)
+    parser.add_argument("--model_name", default="test", type=str)
 
     parser.add_argument("--train_cfg_path", default=None, type=str)
     args = parser.parse_args()
@@ -43,14 +43,9 @@ def main():
     data = scipy.io.loadmat(fname)
     coefs_all = data["coefs_all"]
     uscat_all = data["uscat_all"]
-    data_to_train = uscat_all
-    if args.model_name == 'Fourier':
-        uscat_ft = sfft.fft2(uscat_all)
-        uscat_ft_shift = sfft.fftshift(uscat_ft,axes=(1,2))
-        data_to_train = uscat_ft_shift
     
     if train_cfg["network_type"] == 'convnet':
-        data_to_train = data_to_train.real
+        data_to_train = uscat_all.real
         print("The mean value is", np.mean(data_to_train))
         std = np.std(data_to_train)
         data_to_train = data_to_train[:, None, :, :] / std
@@ -60,8 +55,10 @@ def main():
             torch.tensor(coefs_all, dtype=torch.float)
         )
     elif train_cfg["network_type"] == 'complexnet':
-        data_real = data_to_train.real
-        data_imag = data_to_train.imag
+        uscat_ft = sfft.fft2(uscat_all)
+        uscat_ft_shift = sfft.fftshift(uscat_ft,axes=(1,2))
+        data_real = uscat_ft_shift.real
+        data_imag = uscat_ft_shift.imag
         print("The mean values are", np.mean(data_real), np.mean(data_imag))
         std_r = np.std(data_real)
         std_i = np.std(data_imag)
