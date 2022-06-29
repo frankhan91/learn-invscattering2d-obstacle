@@ -3,6 +3,7 @@ import json
 import argparse
 import numpy as np
 import scipy.io
+import scipy.fftpack as sfft
 import torch
 import torch.nn as nn
 import torch.utils.data
@@ -29,8 +30,8 @@ def parse_args():
                 raise
 
         args.train_cfg_path = "./configs/train_nc{}.json".format(nc)
+    
     f = open(args.train_cfg_path)
-
     train_cfg = json.load(f)
     f.close()
     return args, train_cfg
@@ -41,66 +42,127 @@ def main():
     fname = os.path.join(args.dirname, "forward_data.mat")
     data = scipy.io.loadmat(fname)
     coefs_all = data["coefs_all"]
-    uscat_all = data["uscat_all"].real
-    print("The mean value is", np.mean(uscat_all))
-    std = np.std(uscat_all)
-    uscat_all = uscat_all[:, None, :, :] / std
-    data_cfg = json.loads(data["cfg_str"][0])
-
-    dataset = torch.utils.data.TensorDataset(
-        torch.tensor(uscat_all, dtype=torch.float),
-        torch.tensor(coefs_all, dtype=torch.float)
-    )
-    n_coefs = coefs_all.shape[1]
+    uscat_all = data["uscat_all"]
+    
+    if train_cfg["network_type"] == 'convnet':
+        data_to_train = uscat_all.real
+        print("The mean value is", np.mean(data_to_train))
+        std = np.std(data_to_train)
+        data_to_train = data_to_train[:, None, :, :] / std
+        data_cfg = json.loads(data["cfg_str"][0])
+        dataset = torch.utils.data.TensorDataset(
+            torch.tensor(data_to_train, dtype=torch.float),
+            torch.tensor(coefs_all, dtype=torch.float)
+        )
+    elif train_cfg["network_type"] == 'complexnet':
+        uscat_ft = sfft.fft2(uscat_all)
+        uscat_ft_shift = sfft.fftshift(uscat_ft,axes=(1,2))
+        data_real = uscat_ft_shift.real
+        data_imag = uscat_ft_shift.imag
+        print("The mean values are", np.mean(data_real), np.mean(data_imag))
+        std_r = np.std(data_real)
+        std_i = np.std(data_imag)
+        std = (std_r**2 + std_i**2)**0.5
+        data_real = data_real[:, None, :, :] / std
+        data_imag = data_imag[:, None, :, :] / std
+        data_cfg = json.loads(data["cfg_str"][0])
+    
+        dataset = torch.utils.data.TensorDataset(
+            torch.tensor(data_real, dtype=torch.float),
+            torch.tensor(data_imag, dtype=torch.float),
+            torch.tensor(coefs_all, dtype=torch.float)
+        )
     ndata = coefs_all.shape[0]
     nval = min(100, int(ndata*0.05))
     ntrain = ndata - nval
     train_set, val_set = torch.utils.data.random_split(dataset, [ntrain, nval], generator=torch.Generator().manual_seed(train_cfg["seed"]))
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=train_cfg["batch_size"])
-    uscat_val, coef_val = val_set[:]
+    if train_cfg["network_type"] == 'convnet':
+        uscat_val, coef_val = val_set[:]
+    elif train_cfg["network_type"] == 'complexnet':
+        ft_val_real, ft_val_imag, coef_val = val_set[:]
 
     loss_fn = nn.MSELoss()
     log_dir=os.path.join(args.dirname, args.model_name)
     writer = SummaryWriter(log_dir)
-
-    def train(model, device, train_loader, optimizer, epoch, scheduler):
-        for e in range(epoch):
-            n_loss = 0
-            current_loss = 0.0
-            for batch_idx, (data, target) in enumerate(train_loader):
-                data, target = data.to(device), target.to(device)
-                optimizer.zero_grad()
-                output = model(data)
-                loss = loss_fn(output, target)
-                loss.backward()
-                optimizer.step()
-                n_loss += 1
-                current_loss += loss.item()
-            if e % train_cfg["valid_freq"] == 0:
-                coef_pred = model(uscat_val)
-                loss_train = current_loss / n_loss
-                loss_val = loss_fn(coef_pred, coef_val.to(device)).item()
-                print('Train Epoch: {:3}, Train Loss: {:.6f}, Val loss: {:.6f}'.format(
-                    e, loss_train, loss_val)
-                )
-                writer.add_scalar('loss_train', loss_train, e)
-                writer.add_scalar('loss_val', loss_val, e)
-                writer.add_scalar('log_log_loss_train', np.log(loss_train), np.log(e+1)*1000)
-                writer.add_scalar('log_log_loss_val', np.log(loss_val), np.log(e+1)*1000)
-            scheduler.step()
-        return
-
+    if train_cfg["network_type"] == 'convnet':
+        def train(model, device, train_loader, optimizer, epoch, scheduler):
+            for e in range(epoch):
+                n_loss = 0
+                current_loss = 0.0
+                for batch_idx, (data, target) in enumerate(train_loader):
+                    data, target = data.to(device), target.to(device)
+                    optimizer.zero_grad()
+                    output = model(data)
+                    loss = loss_fn(output, target)
+                    loss.backward()
+                    optimizer.step()
+                    n_loss += 1
+                    current_loss += loss.item()
+                if e % train_cfg["valid_freq"] == 0:
+                    coef_pred = model(uscat_val)
+                    loss_train = current_loss / n_loss
+                    loss_val = loss_fn(coef_pred, coef_val.to(device)).item()
+                    print('Train Epoch: {:3}, Train Loss: {:.6f}, Val loss: {:.6f}'.format(
+                        e, loss_train, loss_val)
+                    )
+                    writer.add_scalar('loss_train', loss_train, e)
+                    writer.add_scalar('loss_val', loss_val, e)
+                    writer.add_scalar('log_log_loss_train', np.log(loss_train), np.log(e+1)*1000)
+                    writer.add_scalar('log_log_loss_val', np.log(loss_val), np.log(e+1)*1000)
+                scheduler.step()
+            return
+    elif train_cfg["network_type"] == 'complexnet':
+        # write two train to avoid 'if else' in each iteration
+        def train(model, device, train_loader, optimizer, epoch, scheduler):
+            for e in range(epoch):
+                n_loss = 0
+                current_loss = 0.0
+                for batch_idx, (data_r, data_c, target) in enumerate(train_loader):
+                    data_r, data_c, target = data_r.to(device), data_c.to(device), target.to(device)
+                    optimizer.zero_grad()
+                    output = model(data_r, data_c)
+                    loss = loss_fn(output, target)
+                    loss.backward()
+                    optimizer.step()
+                    n_loss += 1
+                    current_loss += loss.item()
+                if e % train_cfg["valid_freq"] == 0:
+                    coef_pred = model(ft_val_real, ft_val_imag)
+                    loss_train = current_loss / n_loss
+                    loss_val = loss_fn(coef_pred, coef_val.to(device)).item()
+                    print('Train Epoch: {:3}, Train Loss: {:.6f}, Val loss: {:.6f}'.format(
+                        e, loss_train, loss_val)
+                    )
+                    writer.add_scalar('loss_train', loss_train, e)
+                    writer.add_scalar('loss_val', loss_val, e)
+                    writer.add_scalar('log_log_loss_train', np.log(loss_train), np.log(e+1)*1000)
+                    writer.add_scalar('log_log_loss_val', np.log(loss_val), np.log(e+1)*1000)
+                scheduler.step()
+            return
+        
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    uscat_val = uscat_val.to(device)
-    model = network.ConvNet(data_cfg, train_cfg).to(device)
+    
+    if train_cfg["network_type"] == 'convnet':
+        uscat_val = uscat_val.to(device)
+        model = network.ConvNet(data_cfg, train_cfg).to(device)
+    elif train_cfg["network_type"] == 'complexnet':
+        ft_val_real = ft_val_real.to(device)
+        ft_val_imag = ft_val_imag.to(device)
+        model = network.ComplexNet(data_cfg, train_cfg).to(device)
     # TODO: test performance of ADAM and other learning rates
     if train_cfg["optimizer"] == "SGD":
         optimizer = torch.optim.SGD(model.parameters(), lr=train_cfg["lr"], momentum=train_cfg["momentum"])
+    elif train_cfg["optimizer"] == "Adam":
+        optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg["lr"])
     epoch = train_cfg["epoch"]
     scheduler = MultiStepLR(optimizer, milestones=train_cfg["milestones"], gamma=train_cfg["gamma"])
     # TODO: add functionality to re-train
     train(model, device, train_loader, optimizer, epoch, scheduler)
-    coef_pred = model(uscat_val)
+    if train_cfg["network_type"] == 'convnet':
+        coef_pred = model(uscat_val)
+    elif train_cfg["network_type"] == 'complexnet':
+        coef_pred = model(ft_val_real, ft_val_imag)
     writer.close()
 
     scipy.io.savemat(

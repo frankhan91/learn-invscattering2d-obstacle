@@ -8,6 +8,7 @@ import json
 import argparse
 import numpy as np
 import scipy.io
+import scipy.fftpack as sfft
 import torch
 import torch.utils.data
 import network
@@ -31,6 +32,8 @@ def parse_args():
 
 def main():
     args, data_cfg, train_cfg = parse_args()
+    idx = args.model_path.rfind('/')
+    model_name = args.model_path[idx+1:]
     
     # load data
     data = scipy.io.loadmat(args.data_path)
@@ -39,18 +42,34 @@ def main():
     std = float(std)
     
     #load predictor
-    loaded_net = network.ConvNet(data_cfg, train_cfg)
+    if train_cfg["network_type"] == 'convnet':
+        loaded_net = network.ConvNet(data_cfg, train_cfg)
+    elif train_cfg["network_type"] == 'complexnet':
+        loaded_net = network.ComplexNet(data_cfg, train_cfg)
+    
     if torch.cuda.is_available():
         loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt")))
     else:
         loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt"), map_location=torch.device('cpu')))
     
     # apply the predictor to obtian an initialization
-    uscat_all = data["uscat_all"].real / std # the scattered data
-    n_sample, n_dir, n_theta = np.shape(uscat_all)
-    uscat_all = torch.from_numpy(uscat_all.reshape(n_sample,1,n_dir,n_theta))
-    uscat_all = uscat_all.float()
-    coef_pred = loaded_net(uscat_all)
+    uscat_all = data["uscat_all"]
+    data_to_predict = uscat_all
+    if model_name == 'Fourier':
+        uscat_ft = sfft.fft2(uscat_all)
+        uscat_ft_shift = sfft.fftshift(uscat_ft,axes=(1,2))
+        data_to_predict = uscat_ft_shift
+    
+    if train_cfg["network_type"] == 'convnet':
+        data_to_predict = data_to_predict.real / std # the scattered data
+        data_to_predict = torch.from_numpy(data_to_predict[:, None, :, :]).float()
+        coef_pred = loaded_net(data_to_predict)
+    elif train_cfg["network_type"] == 'complexnet':
+        data_real = data_to_predict.real
+        data_imag = data_to_predict.imag
+        data_real = torch.from_numpy(data_real[:, None, :, :] / std).float()
+        data_imag = torch.from_numpy(data_imag[:, None, :, :] / std).float()
+        coef_pred = loaded_net(data_real, data_imag)
     
     # save predicted coef
     if args.data_path[-4:] == ".mat":
