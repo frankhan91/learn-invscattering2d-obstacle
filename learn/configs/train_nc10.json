@@ -8,6 +8,7 @@
     "momentum": 0.9,
     "milestones": [600],
     "gamma": 0.25,
+    "network_type": "convnet",
     "out_channels": 4,
     "kernel_size": 5,
     "paddle": 2,

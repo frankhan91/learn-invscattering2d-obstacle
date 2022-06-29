@@ -42,29 +42,34 @@ def main():
     std = float(std)
     
     #load predictor
-    if model_name == 'test':
+    if train_cfg["network_type"] == 'convnet':
         loaded_net = network.ConvNet(data_cfg, train_cfg)
-    elif model_name == 'Fourier':
+    elif train_cfg["network_type"] == 'complexnet':
         loaded_net = network.ComplexNet(data_cfg, train_cfg)
+    
     if torch.cuda.is_available():
         loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt")))
     else:
         loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt"), map_location=torch.device('cpu')))
     
     # apply the predictor to obtian an initialization
-    if model_name == 'test':
-        uscat_all = data["uscat_all"].real / std # the scattered data
-        uscat_all = torch.from_numpy(uscat_all[:, None, :, :]).float()
-        coef_pred = loaded_net(uscat_all)
-    elif model_name == 'Fourier':
-        uscat_all = data["uscat_all"]
+    uscat_all = data["uscat_all"]
+    data_to_predict = uscat_all
+    if model_name == 'Fourier':
         uscat_ft = sfft.fft2(uscat_all)
         uscat_ft_shift = sfft.fftshift(uscat_ft,axes=(1,2))
-        ft_real = uscat_ft_shift.real
-        ft_imag = uscat_ft_shift.imag
-        ft_real = torch.from_numpy(ft_real[:, None, :, :] / std).float()
-        ft_imag = torch.from_numpy(ft_imag[:, None, :, :] / std).float()
-        coef_pred = loaded_net(ft_real, ft_imag)
+        data_to_predict = uscat_ft_shift
+    
+    if train_cfg["network_type"] == 'convnet':
+        data_to_predict = data_to_predict.real / std # the scattered data
+        data_to_predict = torch.from_numpy(data_to_predict[:, None, :, :]).float()
+        coef_pred = loaded_net(data_to_predict)
+    elif train_cfg["network_type"] == 'complexnet':
+        data_real = data_to_predict.real
+        data_imag = data_to_predict.imag
+        data_real = torch.from_numpy(data_real[:, None, :, :] / std).float()
+        data_imag = torch.from_numpy(data_imag[:, None, :, :] / std).float()
+        coef_pred = loaded_net(data_real, data_imag)
     
     # save predicted coef
     if args.data_path[-4:] == ".mat":
