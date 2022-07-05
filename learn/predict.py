@@ -16,7 +16,7 @@ import network
 # TODO: add config for both data and predictor
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_path", default="./data/star3_kh10_n48_100/forward_data.mat", type=str)
+    parser.add_argument("--data_path", default="./data/star3_kh10_n48_100/temp.mat", type=str)
     parser.add_argument("--model_path", default="./data/star3_kh10_n48_100/test", type=str)
     parser.add_argument("--print_coef", default=False, type=bool)
     args = parser.parse_args()
@@ -32,9 +32,7 @@ def parse_args():
 
 def main():
     args, data_cfg, train_cfg = parse_args()
-    idx = args.model_path.rfind('/')
-    model_name = args.model_path[idx+1:]
-    
+    network_type = train_cfg["network_type"]
     # load data
     data = scipy.io.loadmat(args.data_path)
     f = open(os.path.join(args.model_path, "std.txt"))
@@ -42,9 +40,9 @@ def main():
     std = float(std)
     
     #load predictor
-    if train_cfg["network_type"] == 'convnet':
+    if network_type == 'convnet':
         loaded_net = network.ConvNet(data_cfg, train_cfg)
-    elif train_cfg["network_type"] == 'complexnet':
+    elif network_type == 'complexnet':
         loaded_net = network.ComplexNet(data_cfg, train_cfg)
     
     if torch.cuda.is_available():
@@ -54,22 +52,17 @@ def main():
     
     # apply the predictor to obtian an initialization
     uscat_all = data["uscat_all"]
-    data_to_predict = uscat_all
-    if model_name == 'Fourier':
+    if train_cfg["network_type"] == 'convnet':
+        data_to_predict = uscat_all.real[:,None,:,:] / std # the scattered data
+    elif train_cfg["network_type"] == 'complexnet':
         uscat_ft = sfft.fft2(uscat_all)
         uscat_ft_shift = sfft.fftshift(uscat_ft,axes=(1,2))
         data_to_predict = uscat_ft_shift
-    
-    if train_cfg["network_type"] == 'convnet':
-        data_to_predict = data_to_predict.real / std # the scattered data
-        data_to_predict = torch.from_numpy(data_to_predict[:, None, :, :]).float()
-        coef_pred = loaded_net(data_to_predict)
-    elif train_cfg["network_type"] == 'complexnet':
-        data_real = data_to_predict.real
-        data_imag = data_to_predict.imag
-        data_real = torch.from_numpy(data_real[:, None, :, :] / std).float()
-        data_imag = torch.from_numpy(data_imag[:, None, :, :] / std).float()
-        coef_pred = loaded_net(data_real, data_imag)
+        data_real = data_to_predict.real / std
+        data_imag = data_to_predict.imag / std
+        data_to_predict = np.concatenate((data_real[:, None, :, :], data_imag[:, None, :, :]), axis=1)
+    data_to_predict = torch.from_numpy(data_to_predict).float()
+    coef_pred = loaded_net(data_to_predict)
     
     # save predicted coef
     if args.data_path[-4:] == ".mat":

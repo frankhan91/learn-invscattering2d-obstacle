@@ -4,6 +4,7 @@
     "fc_cst_range": [1, 1.2],
     "fc_max": 0.3,
     "ndata": 100,
+    "nvalid": 10,
     "nk": 1,
     "kh": 10,
     "n_tgt": 48,

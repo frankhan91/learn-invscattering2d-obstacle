@@ -72,7 +72,9 @@ class ComplexNet(nn.Module):
         self.fc2c = nn.Linear(linear_dim[0], linear_dim[1])
         self.fc3c = nn.Linear(linear_dim[1], 2 * nc + 1)
 
-    def forward(self, x, y):
+    def forward(self, x_and_y):
+        x = x_and_y[:,0:1,:,:] #real part
+        y = x_and_y[:,1:2,:,:] #imaginary part
         x = F.relu(self.conv1r(x))
         x = self.pool(x)
         x = self.pool(F.relu(self.conv2r(x)))
