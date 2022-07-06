@@ -7,7 +7,7 @@ clearvars
 data_type = 'nn'; % 'random' or 'nn_stored' or 'nn';
 env_path = readlines('env_path.txt');
 env_path = env_path(1); % only read the first line
-
+test_origin_alg = false;
 if strcmp(data_type, 'nn_stored')
     % CAREFUL: need to enter manually
     pred_path = './data/star3_kh10_n48_100/valid_predby_test.mat'; 
@@ -28,10 +28,11 @@ elseif strcmp(data_type, 'nn')
     idx = strfind(model_path, '/');
     model_name = model_path(idx(end)+1:end);
 end
+cfg_str = erase(cfg_str, '\n'); % jsondecode cannot read '\n' (in big data)
 cfg = jsondecode(cfg_str);
 ndata = cfg.ndata;
 n  = 300;
-
+n_curv = 30;
 % max number of wiggles
 nc = cfg.nc;
 % Set of frequencies (k_{i})
@@ -74,7 +75,7 @@ sensor_info.t_dir = t_dir_grid;
 
 % parameters 'a'
 
-nppw = 20;
+nppw = max(2*nc, 20);
 if strcmp(data_type, 'random') || strcmp(data_type, 'nn')
     coef = sample_fc(cfg, 1);
 end
@@ -91,6 +92,7 @@ if strcmp(data_type, 'nn_stored')
     pred_idx = 1;
     coef = nn_pred.coef_val(pred_idx, :);
     coef_pred = nn_pred.coef_pred(pred_idx, :);
+    % coef_pred = coef + randn(1,2*nc+1) * 0.01;
     src_info_pred = geometries.starn(coef_pred,nc,n);
 end
 
@@ -100,6 +102,10 @@ for ik=1:nk
    n = ceil(nppw*L*abs(kh(ik))/2/pi);
    n = max(n,300);
    src_info_ex = geometries.starn(coef,nc,n);
+   freq = fft(src_info_ex.H);
+   freq_tail = freq(n_curv+2:end-n_curv);
+   ratio = norm(freq_tail) / norm(freq);
+   fprintf('the true ratio is %2.3f \n', ratio);
    [mats,erra] = rla.get_fw_mats(kh(ik),src_info_ex,bc,sensor_info,opts);
    fields = rla.compute_fields(kh(ik),src_info_ex,mats,sensor_info,bc,opts);
 end
@@ -119,6 +125,9 @@ if strcmp(data_type, 'nn')
     src_info_pred = geometries.starn(coef_pred,nc,n);
 end
 
+if strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
+    err_pred = norm(coef - coef_pred) / norm(coef)
+end
 u_meas = cell(1,1);
 u_meas0 = [];
 u_meas0.kh = kh;
@@ -141,23 +150,32 @@ bc.type = 'Dirichlet';
 bc.invtype = 'o';
 optim_opts.optim_type = cfg.optim_type;
 optim_opts.filter_type = cfg.filter_type;
-%optim_opts.eps_curv = 0.3;
+optim_opts.n_curv = n_curv;
+optim_opts.optim_type = 'gn';
+%optim_opts.eps_curv = 0.1;
 %optim_opts.eps_res = 1e-10;
 %optim_opts.eps_upd = 1e-10;
 opts.store_src_info = true;
-[inv_data_all,src_info_out] = rla.rla_inverse_solver(u_meas,bc,...
-                          optim_opts,opts);
-iter_count = inv_data_all{1}.iter_count;
-src_info_default_res = inv_data_all{1}.src_info_all{iter_count};
-
+if test_origin_alg
+    [inv_data_all,src_info_out] = rla.rla_inverse_solver(u_meas,bc,...
+                              optim_opts,opts);
+    iter_count = inv_data_all{1}.iter_count;
+    src_info_default_res = inv_data_all{1}.src_info_all{iter_count};
+end
 figure
 hold on
 plot(src_info_ex.xs,src_info_ex.ys,'k.', 'MarkerSize', 12);
-plot(src_info_default_res.xs,src_info_default_res.ys,'b--', 'LineWidth',2);
+if test_origin_alg
+    plot(src_info_default_res.xs,src_info_default_res.ys,'b--', 'LineWidth',2);
+end
 
 if strcmp(data_type, 'random')
     plot(0, 0, 'r*');
-    legend('true boundary', 'boundary solved by default init', '')
+    if test_origin_alg
+        legend('true boundary', 'boundary solved by default init', '')
+    else
+        legend('true boundary', '')
+    end
 elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     [inv_data_all_pred,src_info_out_pred] = rla.rla_inverse_solver(u_meas,bc,...
                           optim_opts,opts,src_info_pred);
@@ -166,7 +184,11 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     plot(src_info_pred.xs,src_info_pred.ys,'r:', 'LineWidth',2);
     plot(src_info_pred_res.xs,src_info_pred_res.ys,'m-.', 'LineWidth',2);
     plot(0, 0, 'r*');
-    legend('true boundary', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init', '')
+    if test_origin_alg
+        legend('true boundary', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init', '')
+    else
+        legend('true boundary', 'boundary predicted by nn', 'boundary solved by pred init', '')
+    end
 end
 % w = 9;
 % h = 8;

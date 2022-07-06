@@ -12,13 +12,12 @@ cfg = jsondecode(cfg_str);
 n  = 300;
 
 ndata = cfg.ndata;
-
+nvalid = cfg.nvalid;
 % max number of wiggles
 nc = cfg.nc;
 % Set of frequencies (k_{i})
 nk = cfg.nk;
 kh = cfg.kh;
-
 
 % Test obstacle Frechet derivative for Dirichlet problem
 bc = [];
@@ -55,31 +54,27 @@ sensor_info.tgt = tgt;
 sensor_info.t_dir = t_dir_grid;
 
 % parameters 'a'
-coefs_all = sample_fc(cfg);
+coefs_val = sample_fc(cfg, nvalid);
 
-nppw = 20;
+nppw = max(2*nc, 20);
+coefs = coefs_val(1, :)';
+src_info = geometries.starn(coefs,nc,n);
+L = src_info.L;
+n = max(300, ceil(nppw*L*abs(kh)/2/pi));
 
-uscat_all = zeros(ndata, n_dir, n_tgt);
-for idx=1:ndata
-    coefs = coefs_all(idx, :)';
+uscat_val = zeros(nvalid, n_dir, n_tgt);
+for idx=1:nvalid
+    coefs = coefs_val(idx, :)';
     src_info = geometries.starn(coefs,nc,n);
-    L = src_info.L;
-    for ik=1:nk
-       n = ceil(nppw*L*abs(kh(ik))/2/pi);
-       n = max(n,300);
-       src_info = geometries.starn(coefs,nc,n);
-
-       [mats,erra] = rla.get_fw_mats(kh(ik),src_info,bc,sensor_info,opts);
-       fields = rla.compute_fields(kh(ik),src_info,mats,sensor_info,bc,opts);
-    end
-    uscat_all(idx, :, :) = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
+    [mats,erra] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
+    fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
+    uscat_val(idx, :, :) = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
 end
 
 figure
-uscat_tgt = squeeze(uscat_all(ndata, :, :));
+uscat_tgt = squeeze(uscat_val(1, :, :));
 % imagesc(abs(fftshift(fft2(uscat_tgt))))
 imagesc(abs(((uscat_tgt))))
-
 figure
 hold on
 plot(src_info.xs,src_info.ys,'b.');
@@ -91,6 +86,26 @@ if ~strcmp(data_prefix, '')
 end
 if ndata>1 && ~exist(dirname, 'dir')
     mkdir(dirname)
-    fname = strcat(dirname, '/forward_data.mat');
-    save(fname, 'coefs_all', 'uscat_all', 'cfg_str');
+    fname = strcat(dirname, '/valid_data.mat');
+    save(fname, 'coefs_val', 'uscat_val', 'cfg_str');
+    fprintf('Successfully saved the validation data \n')
+end
+
+train_data_dir = strcat(dirname, '/train_data');
+if ndata>1 && ~exist(train_data_dir, 'dir')
+    mkdir(train_data_dir)
+end
+fprintf('Start to generate train data \n')
+parfor idx=1:ndata
+    coefs = sample_fc(cfg, 1)';
+    src_info = geometries.starn(coefs,nc,n);
+    [mats,erra] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
+    fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
+    uscat = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
+    data_name = strcat(train_data_dir, '/train_data_', num2str(idx),'.mat');
+    parsave(data_name, coefs, uscat);
+end
+
+function parsave(data_name, coefs,uscat)
+  save(data_name, 'coefs', 'uscat')
 end

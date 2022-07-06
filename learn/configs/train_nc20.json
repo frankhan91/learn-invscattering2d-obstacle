@@ -1,16 +1,16 @@
 {
     "seed": 123,
     "batch_size": 40,
-    "epoch": 5000,
+    "epoch": 2000,
     "valid_freq": 10,
     "optimizer": "SGD",
     "lr": 0.16,
     "momentum": 0.9,
-    "milestones": [500, 1000],
+    "milestones": [300, 400, 500],
     "gamma": 0.5,
     "network_type": "convnet",
-    "out_channels": 6,
-    "kernel_size": 7,
-    "paddle": 3,
+    "out_channels": 7,
+    "kernel_size": 9,
+    "paddle": 4,
     "linear_dim": [512, 128]
 }
