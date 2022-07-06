@@ -7,7 +7,7 @@ clearvars
 data_type = 'nn'; % 'random' or 'nn_stored' or 'nn';
 env_path = readlines('env_path.txt');
 env_path = env_path(1); % only read the first line
-test_origin = false;
+test_origin_alg = false;
 if strcmp(data_type, 'nn_stored')
     % CAREFUL: need to enter manually
     pred_path = './data/star3_kh10_n48_100/valid_predby_test.mat'; 
@@ -75,7 +75,7 @@ sensor_info.t_dir = t_dir_grid;
 
 % parameters 'a'
 
-nppw = 2*nc;
+nppw = max(2*nc, 20);
 if strcmp(data_type, 'random') || strcmp(data_type, 'nn')
     coef = sample_fc(cfg, 1);
 end
@@ -156,7 +156,7 @@ optim_opts.optim_type = 'gn';
 %optim_opts.eps_res = 1e-10;
 %optim_opts.eps_upd = 1e-10;
 opts.store_src_info = true;
-if test_origin
+if test_origin_alg
     [inv_data_all,src_info_out] = rla.rla_inverse_solver(u_meas,bc,...
                               optim_opts,opts);
     iter_count = inv_data_all{1}.iter_count;
@@ -165,13 +165,13 @@ end
 figure
 hold on
 plot(src_info_ex.xs,src_info_ex.ys,'k.', 'MarkerSize', 12);
-if test_origin
+if test_origin_alg
     plot(src_info_default_res.xs,src_info_default_res.ys,'b--', 'LineWidth',2);
 end
 
 if strcmp(data_type, 'random')
     plot(0, 0, 'r*');
-    if test_origin
+    if test_origin_alg
         legend('true boundary', 'boundary solved by default init', '')
     else
         legend('true boundary', '')
@@ -184,7 +184,7 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     plot(src_info_pred.xs,src_info_pred.ys,'r:', 'LineWidth',2);
     plot(src_info_pred_res.xs,src_info_pred_res.ys,'m-.', 'LineWidth',2);
     plot(0, 0, 'r*');
-    if test_origin
+    if test_origin_alg
         legend('true boundary', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init', '')
     else
         legend('true boundary', 'boundary predicted by nn', 'boundary solved by pred init', '')

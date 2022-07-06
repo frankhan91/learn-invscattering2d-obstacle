@@ -29,7 +29,6 @@ def parse_args():
         args.train_cfg_path = "./configs/train_nc{}.json".format(nc)
     f = open(args.train_cfg_path)
     train_cfg = json.load(f)
-    
     f.close()
     return args, train_cfg
 
@@ -152,7 +151,6 @@ def main():
     train(model, device, train_loader, optimizer, epoch, scheduler)
     coef_pred = model(tgt_valid)
     writer.close()
-    
     scipy.io.savemat(
         os.path.join(args.dirname, "valid_predby_{}.mat".format(args.model_name)),
         {
