@@ -19,7 +19,6 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dirname", default="./data/star3_kh10_n48_100", type=str)
     parser.add_argument("--model_name", default="test", type=str)
-    parser.add_argument("--save_halfway", default="", type=str)
     parser.add_argument("--train_cfg_path", default=None, type=str)
     args = parser.parse_args()
     if args.train_cfg_path is None:
@@ -76,7 +75,6 @@ class ComplexData(torch.utils.data.Dataset):
 def main():
     start_time = time.time()
     args, train_cfg = parse_args()
-    save_idx = [int(num) for num in args.save_halfway.split()]
     logger.info("Train data from {}".format(args.dirname))
     logger.info("model name {}".format(args.model_name))
     fname = os.path.join(args.dirname, "valid_data.mat")
@@ -140,7 +138,7 @@ def main():
                 writer.add_scalar('loss_val', loss_val, e)
                 writer.add_scalar('log_log_loss_train', np.log(loss_train), np.log(e+1)*1000)
                 writer.add_scalar('log_log_loss_val', np.log(loss_val), np.log(e+1)*1000)
-            if e in save_idx:
+            if train_cfg["save_every_nepoch"]>0 and e % train_cfg["save_every_nepoch"] == 0 and e>0:
                 torch.save(model.state_dict(), os.path.join(model_dir, "model_"+str(e)+".pt"))
             scheduler.step()
         return
