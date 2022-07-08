@@ -5,6 +5,7 @@
     "fc_max": 0.3,
     "ndata": 100,
     "nvalid": 10,
+    "ndata_per_array": 20,
     "nk": 1,
     "kh": 10,
     "n_tgt": 48,
