@@ -9,7 +9,10 @@ import torch.nn as nn
 import torch.utils.data
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.tensorboard import SummaryWriter
+import logging
 import network
+logging.basicConfig(level=logging.NOTSET)
+logger = logging.getLogger()
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -24,7 +27,7 @@ def parse_args():
             try:
                 nc = int(ncstr[4:])
             except ValueError:
-                print("Error: cannot get the default training config path from dirname.")
+                logger.error("cannot get the default training config path from dirname.")
                 raise
         args.train_cfg_path = "./configs/train_nc{}.json".format(nc)
     f = open(args.train_cfg_path)
@@ -70,8 +73,8 @@ class ComplexData(torch.utils.data.Dataset):
 
 def main():
     args, train_cfg = parse_args()
-    print("Train data from {}".format(args.dirname))
-    print("model name", args.model_name)
+    logger.info("Train data from {}".format(args.dirname))
+    logger.info("model name {}".format(args.model_name))
     fname = os.path.join(args.dirname, "valid_data.mat")
     network_type = train_cfg["network_type"]
     valid_data = scipy.io.loadmat(fname)
@@ -81,7 +84,7 @@ def main():
     
     if network_type == 'convnet':
         tgt_valid = uscat_val.real
-        print("The mean value is", np.mean(tgt_valid))
+        logger.info("The mean value is %.8e", np.mean(tgt_valid))
         std = np.std(tgt_valid)
         tgt_valid = tgt_valid[:, None, :, :] / std
         dataset = RealData(os.path.join(args.dirname, "train_data"), std, network_type)
@@ -90,7 +93,7 @@ def main():
         uscat_ft_shift = sfft.fftshift(uscat_ft,axes=(1,2))
         data_real = uscat_ft_shift.real
         data_imag = uscat_ft_shift.imag
-        print("The mean values are", np.mean(data_real), np.mean(data_imag))
+        logger.info("The mean values are %.8e and %.8e", np.mean(data_real), np.mean(data_imag))
         std_r = np.std(data_real)
         std_i = np.std(data_imag)
         std = (std_r**2 + std_i**2)**0.5
@@ -108,6 +111,7 @@ def main():
     writer = SummaryWriter(log_dir)
     epoch = train_cfg["epoch"]
     def train(model, device, train_loader, optimizer, epoch, scheduler):
+        train_logger = logger.getChild("Train Epoch")
         for e in range(epoch):
             n_loss = 0
             current_loss = 0.0
@@ -122,10 +126,10 @@ def main():
                 n_loss += 1
                 current_loss += loss.item()
             if e % train_cfg["valid_freq"] == 0:
-                coef_pred = model(tgt_valid)
+                coef_pred = model(tgt_valid.to(device))
                 loss_train = current_loss / n_loss
                 loss_val = loss_fn(coef_pred, coef_val.to(device)).item()
-                print('Train Epoch: {:3}, Train Loss: {:.6f}, Val loss: {:.6f}'.format(
+                train_logger.info('Train Epoch: {:3}, Train Loss: {:.6f}, Val loss: {:.6f}'.format(
                     e, loss_train, loss_val)
                 )
                 writer.add_scalar('loss_train', loss_train, e)
@@ -149,7 +153,7 @@ def main():
     scheduler = MultiStepLR(optimizer, milestones=train_cfg["milestones"], gamma=train_cfg["gamma"])
     # TODO: add functionality to re-train
     train(model, device, train_loader, optimizer, epoch, scheduler)
-    coef_pred = model(tgt_valid)
+    coef_pred = model(tgt_valid.to(device))
     writer.close()
     scipy.io.savemat(
         os.path.join(args.dirname, "valid_predby_{}.mat".format(args.model_name)),
