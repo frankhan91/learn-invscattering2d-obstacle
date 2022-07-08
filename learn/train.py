@@ -2,6 +2,7 @@ import os
 import json
 import argparse
 import numpy as np
+import time
 import scipy.io
 import scipy.fftpack as sfft
 import torch
@@ -18,6 +19,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dirname", default="./data/star3_kh10_n48_100", type=str)
     parser.add_argument("--model_name", default="test", type=str)
+    parser.add_argument("--save_halfway", default="", type=str)
     parser.add_argument("--train_cfg_path", default=None, type=str)
     args = parser.parse_args()
     if args.train_cfg_path is None:
@@ -72,7 +74,9 @@ class ComplexData(torch.utils.data.Dataset):
 
 
 def main():
+    start_time = time.time()
     args, train_cfg = parse_args()
+    save_idx = [int(num) for num in args.save_halfway.split()]
     logger.info("Train data from {}".format(args.dirname))
     logger.info("model name {}".format(args.model_name))
     fname = os.path.join(args.dirname, "valid_data.mat")
@@ -110,7 +114,7 @@ def main():
     log_dir=os.path.join(args.dirname, args.model_name)
     writer = SummaryWriter(log_dir)
     epoch = train_cfg["epoch"]
-    def train(model, device, train_loader, optimizer, epoch, scheduler):
+    def train(model, device, train_loader, optimizer, epoch, scheduler, model_dir):
         train_logger = logger.getChild("Train Epoch")
         for e in range(epoch):
             n_loss = 0
@@ -129,13 +133,15 @@ def main():
                 coef_pred = model(tgt_valid.to(device))
                 loss_train = current_loss / n_loss
                 loss_val = loss_fn(coef_pred, coef_val.to(device)).item()
-                train_logger.info('Train Epoch: {:3}, Train Loss: {:.6f}, Val loss: {:.6f}'.format(
-                    e, loss_train, loss_val)
+                train_logger.info('{:3}, Train Loss: {:.6f}, Val loss: {:.6f}, time: {:.1f}s'.format(
+                    e, loss_train, loss_val, (time.time() - start_time))
                 )
                 writer.add_scalar('loss_train', loss_train, e)
                 writer.add_scalar('loss_val', loss_val, e)
                 writer.add_scalar('log_log_loss_train', np.log(loss_train), np.log(e+1)*1000)
                 writer.add_scalar('log_log_loss_val', np.log(loss_val), np.log(e+1)*1000)
+            if e in save_idx:
+                torch.save(model.state_dict(), os.path.join(model_dir, "model_"+str(e)+".pt"))
             scheduler.step()
         return
         
@@ -152,7 +158,8 @@ def main():
     
     scheduler = MultiStepLR(optimizer, milestones=train_cfg["milestones"], gamma=train_cfg["gamma"])
     # TODO: add functionality to re-train
-    train(model, device, train_loader, optimizer, epoch, scheduler)
+    model_dir = os.path.join(args.dirname, args.model_name)
+    train(model, device, train_loader, optimizer, epoch, scheduler, model_dir)
     coef_pred = model(tgt_valid.to(device))
     writer.close()
     scipy.io.savemat(
@@ -163,7 +170,6 @@ def main():
             "cfg_str": valid_data["cfg_str"][0]
         }
     )
-    model_dir = os.path.join(args.dirname, args.model_name)
     torch.save(model.state_dict(), os.path.join(model_dir, "model.pt"))
     f = open(os.path.join(model_dir, "std.txt"), 'w')
     f.writelines(f"{std}\n")

@@ -4,16 +4,17 @@
 function starn_forward_singlefreq(array_id)
 close all
 clearvars -except array_id
+tic
 if nargin == 0
-    fprintf('Runing the code on one server, no parallel computing')
+    fprintf('Runing the code on one server, no parallel computing \n')
 elseif array_id == 0
     fprintf('Generating validation data \n')
 else
     fprintf(['Generating training data through parallel computing with array index ' ...
-    num2str(array_id) ', will not generate validation data.'])
+    num2str(array_id) ', will not generate validation data. \n'])
 end
 
-cfg_path = './configs/nc3.json';
+cfg_path = './configs/nc20.json';
 data_prefix = '';
 cfg_str = fileread(cfg_path);
 cfg = jsondecode(cfg_str);
@@ -57,6 +58,7 @@ sensor_info.tgt = tgt;
 sensor_info.t_dir = t_dir_grid;
 
 % parameters 'a'
+rng(ndata+nvalid)
 coefs_val = sample_fc(cfg, nvalid);
 
 nppw = max(2*nc, 20);
@@ -79,7 +81,7 @@ end
 
 if nargin == 0 || array_id == 0
     uscat_val = zeros(nvalid, n_dir, n_tgt);
-    for idx=1:nvalid
+    parfor idx=1:nvalid
         coefs = coefs_val(idx, :)';
         src_info = geometries.starn(coefs,nc,n);
         [mats,~] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
@@ -102,32 +104,35 @@ if nargin == 0 || array_id == 0
         fprintf('Successfully saved the validation data \n')
     end
 end
-
+save_fcn = @(name, coefs, uscat) save(name, 'coefs', 'uscat');
 if nargin == 0
     fprintf('Start to generate training data \n')
-    for idx=1:ndata
+    parfor idx=1:ndata
         coefs = sample_fc(cfg, 1)';
         src_info = geometries.starn(coefs,nc,n);
         [mats,~] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
         fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
         uscat = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
         data_name = strcat(train_data_dir, '/train_data_', num2str(idx),'.mat');
-        save(data_name, 'coefs', 'uscat');
+        save_fcn(data_name, coefs, uscat);
     end
 elseif array_id >= 1
     ndata_per_array = cfg.ndata_per_array;
     start_idx = (array_id - 1) * ndata_per_array + 1;
     end_idx = array_id * ndata_per_array;
+    end_idx = min(end_idx, ndata);
     fprintf(['Start to generate training data indexed from ' num2str(start_idx) ...
     ' to ' num2str(end_idx) '\n'])
-    for idx=start_idx:end_idx
+    parfor idx=start_idx:end_idx
+        rng(idx)
         coefs = sample_fc(cfg, 1)';
         src_info = geometries.starn(coefs,nc,n);
         [mats,~] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
         fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
         uscat = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
         data_name = strcat(train_data_dir, '/train_data_', num2str(idx),'.mat');
-        save(data_name, 'coefs', 'uscat');
+        save_fcn(data_name, coefs, uscat);
     end
 end
+time=toc
 end
