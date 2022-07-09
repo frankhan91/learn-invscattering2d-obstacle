@@ -14,6 +14,7 @@ import logging
 import network
 logging.basicConfig(level=logging.NOTSET)
 logger = logging.getLogger()
+torch.backends.cudnn.benchmark = True
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -106,7 +107,16 @@ def main():
     
     tgt_valid = torch.tensor(tgt_valid, dtype=torch.float)
     coef_val = torch.tensor(coef_val, dtype=torch.float)
-    train_loader = torch.utils.data.DataLoader(dataset, batch_size=train_cfg["batch_size"])
+    if torch.cuda.is_available():
+        pin_memory = True
+        num_workers = 4
+    else:
+        pin_memory = False
+        num_workers = 0
+    train_loader = torch.utils.data.DataLoader(
+        dataset, batch_size=train_cfg["batch_size"],
+        pin_memory=pin_memory, num_workers=num_workers
+    )
     
     loss_fn = nn.MSELoss()
     log_dir=os.path.join(args.dirname, args.model_name)

@@ -14,7 +14,7 @@ else
     num2str(array_id) ', will not generate validation data. \n'])
 end
 
-cfg_path = './configs/nc20.json';
+cfg_path = './configs/nc3.json';
 data_prefix = '';
 cfg_str = fileread(cfg_path);
 cfg = jsondecode(cfg_str);
