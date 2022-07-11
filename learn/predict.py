@@ -44,11 +44,8 @@ def main():
         loaded_net = network.ConvNet(data_cfg, train_cfg)
     elif network_type == 'complexnet':
         loaded_net = network.ComplexNet(data_cfg, train_cfg)
-    
-    if torch.cuda.is_available():
-        loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt")))
-    else:
-        loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt"), map_location=torch.device('cpu')))
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    loaded_net.load_state_dict(torch.load(os.path.join(args.model_path, "model.pt"), map_location=device))
     
     # apply the predictor to obtian an initialization
     uscat_all = data["uscat_all"]
