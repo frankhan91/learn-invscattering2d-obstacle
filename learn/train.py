@@ -11,6 +11,7 @@ import torch.utils.data
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.tensorboard import SummaryWriter
 import logging
+from multiprocessing import Pool
 import network
 logging.basicConfig(level=logging.NOTSET)
 logger = logging.getLogger()
@@ -21,8 +22,12 @@ def parse_args():
     parser.add_argument("--dirname", default="./data/star3_kh10_n48_100", type=str)
     parser.add_argument("--model_name", default="test", type=str)
     parser.add_argument("--train_cfg_path", default=None, type=str)
+    parser.add_argument("--retrain", default=None, type=str) #format: test/model_100.pt
     args = parser.parse_args()
-    if args.train_cfg_path is None:
+    if args.retrain:
+        old_model_name = args.retrain[:args.retrain.find('/' or "\\")]
+        args.train_cfg_path = os.path.join(args.dirname, old_model_name, "train_config.json")
+    elif args.train_cfg_path is None:
         dirname = os.path.basename(args.dirname)
         ncstr = dirname.split('_')[0]
         if ncstr.startswith("star"):
@@ -37,41 +42,9 @@ def parse_args():
     f.close()
     return args, train_cfg
 
-class RealData(torch.utils.data.Dataset):
-    def __init__(self, root, std, network_type):
-        self.root = root
-        self.files = os.listdir(root) # take all files in the root directory
-        self.std = std
-        
-    def __len__(self):
-        return len(self.files)
-    
-    def __getitem__(self, idx):
-        data = scipy.io.loadmat(os.path.join(self.root, self.files[idx]))
-        uscat = data["uscat"] # shape n_tgt x n_dir
-        uscat = uscat.real / self.std
-        coefs = data["coefs"] # shape (2^nc+1) x 1
-        return uscat[None,:,:], coefs[:,0]
-
-class ComplexData(torch.utils.data.Dataset):
-    def __init__(self, root, std, network_type):
-        self.root = root
-        self.files = os.listdir(root) # take all files in the root directory
-        self.std = std
-        
-    def __len__(self):
-        return len(self.files)
-    
-    def __getitem__(self, idx):
-        data = scipy.io.loadmat(os.path.join(self.root, self.files[idx]))
-        uscat = data["uscat"]
-        uscat_ft = sfft.fft2(uscat)
-        uscat_ft_shift = sfft.fftshift(uscat_ft)
-        real_part = uscat_ft_shift.real / self.std
-        imaginary_part = uscat_ft_shift.imag / self.std
-        coefs = data["coefs"]
-        return np.concatenate((real_part[None,:,:], imaginary_part[None,:,:])), coefs[:,0]
-
+def read_data(data_dir):
+    data = scipy.io.loadmat(data_dir)
+    return data["coefs"][:,0], data["uscat"]
 
 def main():
     start_time = time.time()
@@ -90,7 +63,6 @@ def main():
         logger.info("The mean value is %.8e", np.mean(tgt_valid))
         std = np.std(tgt_valid)
         tgt_valid = tgt_valid[:, None, :, :] / std
-        dataset = RealData(os.path.join(args.dirname, "train_data"), std, network_type)
     elif network_type == 'complexnet':
         uscat_ft = sfft.fft2(uscat_val)
         uscat_ft_shift = sfft.fftshift(uscat_ft,axes=(1,2))
@@ -103,7 +75,47 @@ def main():
         data_real = data_real[:, None, :, :] / std
         data_imag = data_imag[:, None, :, :] / std
         tgt_valid = np.concatenate((data_real, data_imag), axis=1)
-        dataset = ComplexData(os.path.join(args.dirname, "train_data"), std, network_type)
+        
+    model_dir=os.path.join(args.dirname, args.model_name)
+    writer = SummaryWriter(model_dir) # will create model_name folder
+    f = open(os.path.join(model_dir, "std.txt"), 'w')
+    f.writelines(f"{std}\n")
+    f.close()
+    g = open(os.path.join(model_dir, "data_config.json"), 'w')
+    json.dump(data_cfg, g)
+    g.close()
+    h = open(os.path.join(model_dir, "train_config.json"), 'w')
+    json.dump(train_cfg, h)
+    h.close()
+    
+    # load training data
+    data_dir = os.path.join(args.dirname, "train_data")
+    ndata = train_cfg["ndata_train"]
+    have_ndata = len(os.listdir(data_dir))
+    if ndata == 0:
+        ndata = have_ndata
+    elif ndata > have_ndata:
+        logger.warning("ndata_train={:3} out numbers the data_set, will train with ndata={:3}".format(ndata, have_ndata))
+        ndata = have_ndata
+    pool = Pool()
+    temp_dir = os.path.join(data_dir, "train_data_")
+    data_all = pool.map(read_data, [temp_dir+str(idx)+'.mat' for idx in range(1,ndata+1)])
+    coefs_all = np.vstack([data[0][None,:] for data in data_all])
+    uscat_all = np.vstack([data[1][None,:,:] for data in data_all])
+    del data_all
+    if network_type == 'convnet':
+        data_to_train = uscat_all.real[:, None, :, :] / std
+        del uscat_all
+    elif network_type == 'complexnet':
+        u_fft = sfft.fftshift(sfft.fft2(uscat_all)) / std
+        del uscat_all
+        data_to_train = np.concatenate((u_fft.real[:, None, :, :], u_fft.imag[:, None, :, :]), axis=1)
+        del u_fft
+    dataset = torch.utils.data.TensorDataset(
+        torch.tensor(data_to_train, dtype=torch.float),
+        torch.tensor(coefs_all, dtype=torch.float)
+    )
+    logger.info("Successfully load training data, time: {:.1f}s".format(time.time() - start_time))
     
     tgt_valid = torch.tensor(tgt_valid, dtype=torch.float)
     coef_val = torch.tensor(coef_val, dtype=torch.float)
@@ -119,8 +131,6 @@ def main():
     )
     
     loss_fn = nn.MSELoss()
-    log_dir=os.path.join(args.dirname, args.model_name)
-    writer = SummaryWriter(log_dir)
     epoch = train_cfg["epoch"]
     def train(model, device, train_loader, optimizer, epoch, scheduler, model_dir):
         train_logger = logger.getChild("Train Epoch")
@@ -148,16 +158,23 @@ def main():
                 writer.add_scalar('loss_val', loss_val, e)
                 writer.add_scalar('log_log_loss_train', np.log(loss_train), np.log(e+1)*1000)
                 writer.add_scalar('log_log_loss_val', np.log(loss_val), np.log(e+1)*1000)
-            if train_cfg["save_every_nepoch"]>0 and e % train_cfg["save_every_nepoch"] == 0 and e>0:
+            if train_cfg["save_every_nepoch"] > 0 and e % train_cfg["save_every_nepoch"] == 0 and e > 0:
                 torch.save(model.state_dict(), os.path.join(model_dir, "model_"+str(e)+".pt"))
             scheduler.step()
         return
         
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if network_type == 'convnet':
-        model = network.ConvNet(data_cfg, train_cfg).to(device)
+        model = network.ConvNet(data_cfg, train_cfg)
     elif network_type == 'complexnet':
-        model = network.ComplexNet(data_cfg, train_cfg).to(device)
+        model = network.ComplexNet(data_cfg, train_cfg)
+    if args.retrain:
+        logger.info("Retrain model %s", args.retrain)
+        if torch.cuda.is_available():
+            model.load_state_dict(torch.load(os.path.join(args.dirname, args.retrain)))
+        else:
+            model.load_state_dict(torch.load(os.path.join(args.dirname, args.retrain), map_location=torch.device('cpu')))
+    model = model.to(device)
     
     if train_cfg["optimizer"] == "SGD":
         optimizer = torch.optim.SGD(model.parameters(), lr=train_cfg["lr"], momentum=train_cfg["momentum"])
@@ -165,8 +182,7 @@ def main():
         optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg["lr"])
     
     scheduler = MultiStepLR(optimizer, milestones=train_cfg["milestones"], gamma=train_cfg["gamma"])
-    # TODO: add functionality to re-train
-    model_dir = os.path.join(args.dirname, args.model_name)
+    
     train(model, device, train_loader, optimizer, epoch, scheduler, model_dir)
     coef_pred = model(tgt_valid.to(device))
     writer.close()
@@ -179,17 +195,6 @@ def main():
         }
     )
     torch.save(model.state_dict(), os.path.join(model_dir, "model.pt"))
-    f = open(os.path.join(model_dir, "std.txt"), 'w')
-    f.writelines(f"{std}\n")
-    f.close()
 
-    g = open(os.path.join(model_dir, "data_config.json"), 'w')
-    json.dump(data_cfg, g)
-    g.close()
-    
-    h = open(os.path.join(model_dir, "train_config.json"), 'w')
-    json.dump(train_cfg, h)
-    h.close()
-    
 if __name__ == '__main__':
     main()
