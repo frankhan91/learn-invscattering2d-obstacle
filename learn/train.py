@@ -91,12 +91,12 @@ def main():
     # load training data
     data_dir = os.path.join(args.dirname, "train_data")
     ndata = train_cfg["ndata_train"]
-    have_ndata = len(os.listdir(data_dir))
+    ndata_avail = len(os.listdir(data_dir))
     if ndata == 0:
-        ndata = have_ndata
-    elif ndata > have_ndata:
-        logger.warning("ndata_train={:3} out numbers the data_set, will train with ndata={:3}".format(ndata, have_ndata))
-        ndata = have_ndata
+        ndata = ndata_avail
+    elif ndata > ndata_avail:
+        logger.warning("ndata_train={:3} out numbers the data_set, will train with ndata={:3}".format(ndata, ndata_avail))
+        ndata = ndata_avail
     pool = Pool()
     temp_dir = os.path.join(data_dir, "train_data_")
     data_all = pool.map(read_data, [temp_dir+str(idx)+'.mat' for idx in range(1,ndata+1)])
