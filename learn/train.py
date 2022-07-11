@@ -115,6 +115,7 @@ def main():
         torch.tensor(data_to_train, dtype=torch.float),
         torch.tensor(coefs_all, dtype=torch.float)
     )
+    del data_to_train
     logger.info("Successfully load training data, time: {:.1f}s".format(time.time() - start_time))
     
     tgt_valid = torch.tensor(tgt_valid, dtype=torch.float)
@@ -170,10 +171,7 @@ def main():
         model = network.ComplexNet(data_cfg, train_cfg)
     if args.retrain:
         logger.info("Retrain model %s", args.retrain)
-        if torch.cuda.is_available():
-            model.load_state_dict(torch.load(os.path.join(args.dirname, args.retrain)))
-        else:
-            model.load_state_dict(torch.load(os.path.join(args.dirname, args.retrain), map_location=torch.device('cpu')))
+        model.load_state_dict(torch.load(os.path.join(args.dirname, args.retrain), map_location=device))
     model = model.to(device)
     
     if train_cfg["optimizer"] == "SGD":
