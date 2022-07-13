@@ -49,6 +49,8 @@ def read_data(data_dir):
 def main():
     start_time = time.time()
     args, train_cfg = parse_args()
+    if train_cfg["data_type"] == "float32": data_type = torch.float32
+    elif train_cfg["data_type"] == "float64": data_type = torch.float64
     logger.info("Train data from {}".format(args.dirname))
     logger.info("model name {}".format(args.model_name))
     fname = os.path.join(args.dirname, "valid_data.mat")
@@ -60,26 +62,31 @@ def main():
     
     if network_type == 'convnet':
         tgt_valid = uscat_val.real
-        logger.info("The mean value is %.8e", np.mean(tgt_valid))
+        mean = np.mean(tgt_valid)
         std = np.std(tgt_valid)
-        tgt_valid = tgt_valid[:, None, :, :] / std
+        logger.info("Model convnet, mean %.8e, std %.8e", mean, std)
+        tgt_valid = (tgt_valid[:, None, :, :]-mean) / std
     elif network_type == 'complexnet':
         uscat_ft = sfft.fft2(uscat_val)
         uscat_ft_shift = sfft.fftshift(uscat_ft,axes=(1,2))
         data_real = uscat_ft_shift.real
         data_imag = uscat_ft_shift.imag
-        logger.info("The mean values are %.8e and %.8e", np.mean(data_real), np.mean(data_imag))
+        mean_r = np.mean(data_real)
+        mean_i = np.mean(data_imag)
         std_r = np.std(data_real)
         std_i = np.std(data_imag)
-        std = (std_r**2 + std_i**2)**0.5
-        data_real = data_real[:, None, :, :] / std
-        data_imag = data_imag[:, None, :, :] / std
+        logger.info("Model complexnet, mean and std for real %.8e %.8e, imag %.8e %.8e", mean_r, std_r, mean_i, std_i)
+        data_real = (data_real[:, None, :, :]-mean_r) / std_r
+        data_imag = (data_imag[:, None, :, :]-mean_i) / std_i
         tgt_valid = np.concatenate((data_real, data_imag), axis=1)
         
     model_dir=os.path.join(args.dirname, args.model_name)
     writer = SummaryWriter(model_dir) # will create model_name folder
-    f = open(os.path.join(model_dir, "std.txt"), 'w')
-    f.writelines(f"{std}\n")
+    f = open(os.path.join(model_dir, "mean_std.txt"), 'w')
+    if network_type == 'convnet':
+        f.writelines(f"{mean}\n{std}")
+    elif network_type == 'complexnet':
+        f.writelines(f"{mean_r}\n{std_r}\n{mean_i}\n{std_i}")
     f.close()
     g = open(os.path.join(model_dir, "data_config.json"), 'w')
     json.dump(data_cfg, g)
@@ -104,22 +111,23 @@ def main():
     uscat_all = np.vstack([data[1][None,:,:] for data in data_all])
     del data_all
     if network_type == 'convnet':
-        data_to_train = uscat_all.real[:, None, :, :] / std
+        data_to_train = (uscat_all.real[:, None, :, :]-mean) / std
         del uscat_all
     elif network_type == 'complexnet':
-        u_fft = sfft.fftshift(sfft.fft2(uscat_all)) / std
+        u_fft = sfft.fftshift(sfft.fft2(uscat_all),axes=(1,2))
         del uscat_all
-        data_to_train = np.concatenate((u_fft.real[:, None, :, :], u_fft.imag[:, None, :, :]), axis=1)
+        data_to_train = np.concatenate(((u_fft.real[:, None, :, :]-mean_r)/std_r,
+                                        (u_fft.imag[:, None, :, :]-mean_i)/std_i), axis=1)
         del u_fft
     dataset = torch.utils.data.TensorDataset(
-        torch.tensor(data_to_train, dtype=torch.float),
-        torch.tensor(coefs_all, dtype=torch.float)
+        torch.tensor(data_to_train, dtype=data_type),
+        torch.tensor(coefs_all, dtype=data_type)
     )
     del data_to_train
     logger.info("Successfully load training data, time: {:.1f}s".format(time.time() - start_time))
     
-    tgt_valid = torch.tensor(tgt_valid, dtype=torch.float)
-    coef_val = torch.tensor(coef_val, dtype=torch.float)
+    tgt_valid = torch.tensor(tgt_valid, dtype=data_type)
+    coef_val = torch.tensor(coef_val, dtype=data_type)
     if torch.cuda.is_available():
         pin_memory = True
         num_workers = 4
@@ -139,8 +147,8 @@ def main():
             n_loss = 0
             current_loss = 0.0
             for batch_idx, (data, target) in enumerate(train_loader):
-                data = (data.to(device)).type(torch.float)
-                target = (target.to(device)).type(torch.float)
+                data = (data.to(device)).type(data_type)
+                target = (target.to(device)).type(data_type)
                 optimizer.zero_grad()
                 output = model(data)
                 loss = loss_fn(output, target)
@@ -169,6 +177,7 @@ def main():
         model = network.ConvNet(data_cfg, train_cfg)
     elif network_type == 'complexnet':
         model = network.ComplexNet(data_cfg, train_cfg)
+    model.type(data_type)
     if args.retrain:
         logger.info("Retrain model %s", args.retrain)
         model.load_state_dict(torch.load(os.path.join(args.dirname, args.retrain), map_location=device))

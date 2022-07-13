@@ -112,6 +112,7 @@ end
 
 if strcmp(data_type, 'nn')
     % apply the stored predictor
+    pred_idx = 0;
     dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_n' int2str(n_tgt) '_' int2str(ndata)];
     temp_pred_path = strcat(dirname, '/temp.mat');
     coefs_all = coef;
