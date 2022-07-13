@@ -14,5 +14,6 @@
     "out_channels": 4,
     "kernel_size": 5,
     "paddle": 2,
-    "linear_dim": [256, 128]
+    "linear_dim": [256, 128],
+    "data_type": "float32"
 }

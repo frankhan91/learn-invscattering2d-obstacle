@@ -49,6 +49,8 @@ def read_data(data_dir):
 def main():
     start_time = time.time()
     args, train_cfg = parse_args()
+    if train_cfg["data_type"] == "float32": data_type = torch.float32
+    elif train_cfg["data_type"] == "float64": data_type = torch.float64
     logger.info("Train data from {}".format(args.dirname))
     logger.info("model name {}".format(args.model_name))
     fname = os.path.join(args.dirname, "valid_data.mat")
@@ -112,20 +114,20 @@ def main():
         data_to_train = (uscat_all.real[:, None, :, :]-mean) / std
         del uscat_all
     elif network_type == 'complexnet':
-        u_fft = sfft.fftshift(sfft.fft2(uscat_all))
+        u_fft = sfft.fftshift(sfft.fft2(uscat_all),axes=(1,2))
         del uscat_all
         data_to_train = np.concatenate(((u_fft.real[:, None, :, :]-mean_r)/std_r,
                                         (u_fft.imag[:, None, :, :]-mean_i)/std_i), axis=1)
         del u_fft
     dataset = torch.utils.data.TensorDataset(
-        torch.tensor(data_to_train, dtype=torch.float64),
-        torch.tensor(coefs_all, dtype=torch.float64)
+        torch.tensor(data_to_train, dtype=data_type),
+        torch.tensor(coefs_all, dtype=data_type)
     )
     del data_to_train
     logger.info("Successfully load training data, time: {:.1f}s".format(time.time() - start_time))
     
-    tgt_valid = torch.tensor(tgt_valid, dtype=torch.float64)
-    coef_val = torch.tensor(coef_val, dtype=torch.float64)
+    tgt_valid = torch.tensor(tgt_valid, dtype=data_type)
+    coef_val = torch.tensor(coef_val, dtype=data_type)
     if torch.cuda.is_available():
         pin_memory = True
         num_workers = 4
@@ -145,8 +147,8 @@ def main():
             n_loss = 0
             current_loss = 0.0
             for batch_idx, (data, target) in enumerate(train_loader):
-                data = (data.to(device)).type(torch.float64)
-                target = (target.to(device)).type(torch.float64)
+                data = (data.to(device)).type(data_type)
+                target = (target.to(device)).type(data_type)
                 optimizer.zero_grad()
                 output = model(data)
                 loss = loss_fn(output, target)
@@ -175,7 +177,7 @@ def main():
         model = network.ConvNet(data_cfg, train_cfg)
     elif network_type == 'complexnet':
         model = network.ComplexNet(data_cfg, train_cfg)
-    model.type(torch.float64)
+    model.type(data_type)
     if args.retrain:
         logger.info("Retrain model %s", args.retrain)
         model.load_state_dict(torch.load(os.path.join(args.dirname, args.retrain), map_location=device))
