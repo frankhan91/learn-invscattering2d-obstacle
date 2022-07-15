@@ -103,7 +103,7 @@ L = src_info.L;
 nppw = max(2*nc, 20);
 
 for ik=1:nk
-   n = ceil(nppw*L*abs(kh(ik))/2/pi);
+   n = 2*ceil(nppw*L*abs(kh(ik))/4/pi);
    n = max(n,300);
    src_info_ex = geometries.starn(coef,nc,n);
    

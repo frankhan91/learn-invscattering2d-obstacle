@@ -99,7 +99,7 @@ end
 src_info_ex = geometries.starn(coef,nc,n);
 L = src_info_ex.L;
 for ik=1:nk
-   n = ceil(nppw*L*abs(kh(ik))/2/pi);
+   n = 2*ceil(nppw*L*abs(kh(ik))/4/pi);
    n = max(n,300);
    src_info_ex = geometries.starn(coef,nc,n);
    freq = fft(src_info_ex.H);
