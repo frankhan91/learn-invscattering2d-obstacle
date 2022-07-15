@@ -3,6 +3,7 @@
     "dist_type": "uniform_radius",
     "fc_cst_range": [1, 1.2],
     "fc_max": 0.1,
+    "decay": 0,
     "ndata": 1000,
     "nvalid": 50,
     "ndata_per_array": 100,
