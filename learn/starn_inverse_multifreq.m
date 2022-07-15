@@ -103,8 +103,7 @@ L = src_info.L;
 nppw = max(2*nc, 20);
 
 for ik=1:nk
-   n = ceil(nppw*L*abs(kh(ik))/2/pi);
-   n = max(n,300);
+   n = max(300, 2*ceil(nppw*L*abs(kh(ik))/4/pi));
    src_info_ex = geometries.starn(coef,nc,n);
    
    [mats,erra] = rla.get_fw_mats(kh(ik),src_info_ex,bc,sensor_info,opts);

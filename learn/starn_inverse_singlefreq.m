@@ -1,8 +1,8 @@
 % This script solves inverse problem based on single frequency data. The
 % data is either generated randomly in this script or read from pred.mat
-
+function starn_inverse_singlefreq(array_id)
 close all
-clearvars
+clearvars -except array_id
 
 data_type = 'nn'; % 'random' or 'nn_stored' or 'nn';
 env_path = readlines('env_path.txt');
@@ -77,6 +77,7 @@ sensor_info.t_dir = t_dir_grid;
 
 nppw = max(2*nc, 20);
 if strcmp(data_type, 'random') || strcmp(data_type, 'nn')
+    rng(array_id+ndata)
     coef = sample_fc(cfg, 1);
 end
 
@@ -89,17 +90,16 @@ if strcmp(data_type, 'nn') && nc_test > 0
 end
 
 if strcmp(data_type, 'nn_stored')
-    pred_idx = 1;
+    pred_idx = array_id;
     coef = nn_pred.coef_val(pred_idx, :);
     coef_pred = nn_pred.coef_pred(pred_idx, :);
-    % coef_pred = coef + randn(1,2*nc+1) * 0.01;
     src_info_pred = geometries.starn(coef_pred,nc,n);
 end
 
 src_info_ex = geometries.starn(coef,nc,n);
 L = src_info_ex.L;
 for ik=1:nk
-   n = ceil(nppw*L*abs(kh(ik))/2/pi);
+   n = 2*ceil(nppw*L*abs(kh(ik))/4/pi);
    n = max(n,300);
    src_info_ex = geometries.starn(coef,nc,n);
    freq = fft(src_info_ex.H);
@@ -112,7 +112,7 @@ end
 
 if strcmp(data_type, 'nn')
     % apply the stored predictor
-    pred_idx = 0;
+    pred_idx = array_id;
     dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_n' int2str(n_tgt) '_' int2str(ndata)];
     temp_pred_path = strcat(dirname, '/temp.mat');
     coefs_all = coef;
@@ -152,7 +152,7 @@ bc.invtype = 'o';
 optim_opts.optim_type = cfg.optim_type;
 optim_opts.filter_type = cfg.filter_type;
 optim_opts.n_curv = n_curv;
-optim_opts.optim_type = 'gn';
+optim_opts.optim_type = 'sd';
 %optim_opts.eps_curv = 0.1;
 %optim_opts.eps_res = 1e-10;
 %optim_opts.eps_upd = 1e-10;
@@ -191,11 +191,12 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
         legend('true boundary', 'boundary predicted by nn', 'boundary solved by pred init', '')
     end
 end
-% w = 9;
-% h = 8;
-% set(gcf, 'PaperUnits', 'inches');
-% set(gcf, 'PaperSize', [w h]);
-% set(gcf, 'PaperPositionMode', 'manual');
-% set(gcf, 'PaperPosition', [0 0 w h]);
-% set(gcf, 'renderer', 'painters');
-% print(gcf, '-dpdf', ['./figs/prednc' int2str(nc) '_k' int2str(kh) '_' int2str(pred_idx) '.pdf']);
+w = 9;
+h = 8;
+set(gcf, 'PaperUnits', 'inches');
+set(gcf, 'PaperSize', [w h]);
+set(gcf, 'PaperPositionMode', 'manual');
+set(gcf, 'PaperPosition', [0 0 w h]);
+set(gcf, 'renderer', 'painters');
+print(gcf, '-dpdf', ['./figs/prednc' int2str(nc) '_k' int2str(kh) '_' int2str(pred_idx) '.pdf']);
+end
