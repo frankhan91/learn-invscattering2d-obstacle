@@ -65,7 +65,7 @@ nppw = max(2*nc, 20);
 coefs = coefs_val(1, :)';
 src_info = geometries.starn(coefs,nc,n);
 L = src_info.L;
-n = max(300, ceil(nppw*L*abs(kh)/2/pi));
+n = max(300, 2*ceil(nppw*L*abs(kh)/4/pi));
 
 dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_n' int2str(n_tgt) '_' int2str(ndata)];
 if ~strcmp(data_prefix, '')
@@ -108,13 +108,15 @@ save_fcn = @(name, coefs, uscat) save(name, 'coefs', 'uscat');
 if nargin == 0
     fprintf('Start to generate training data \n')
     parfor idx=1:ndata
-        coefs = sample_fc(cfg, 1)';
-        src_info = geometries.starn(coefs,nc,n);
-        [mats,~] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
-        fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
-        uscat = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
         data_name = strcat(train_data_dir, '/train_data_', num2str(idx),'.mat');
-        save_fcn(data_name, coefs, uscat);
+        if ~exist(data_name, 'file')
+            coefs = sample_fc(cfg, 1)';
+            src_info = geometries.starn(coefs,nc,n);
+            [mats,~] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
+            fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
+            uscat = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
+            save_fcn(data_name, coefs, uscat);
+        end
     end
 elseif array_id >= 1
     ndata_per_array = cfg.ndata_per_array;
@@ -124,14 +126,16 @@ elseif array_id >= 1
     fprintf(['Start to generate training data indexed from ' num2str(start_idx) ...
     ' to ' num2str(end_idx) '\n'])
     parfor idx=start_idx:end_idx
-        rng(idx)
-        coefs = sample_fc(cfg, 1)';
-        src_info = geometries.starn(coefs,nc,n);
-        [mats,~] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
-        fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
-        uscat = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
         data_name = strcat(train_data_dir, '/train_data_', num2str(idx),'.mat');
-        save_fcn(data_name, coefs, uscat);
+        if ~exist(data_name, 'file')
+            rng(idx)
+            coefs = sample_fc(cfg, 1)';
+            src_info = geometries.starn(coefs,nc,n);
+            [mats,~] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
+            fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
+            uscat = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
+            save_fcn(data_name, coefs, uscat);
+        end
     end
 end
 time=toc

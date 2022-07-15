@@ -13,7 +13,7 @@ function [coefs] = sample_fc(cfg, varargin)
     % each pair of Fourier coefficients are jointly sampled, whose radius
     % is unformly sampled
     elseif strcmp(cfg.dist_type, 'uniform_radius')
-        r = rand(ndata, nc) * cfg.fc_max ./ (1:nc).^(0);
+        r = rand(ndata, nc) * cfg.fc_max ./ (1:nc).^(cfg.decay);
         theta = rand(ndata, nc) * 2 * pi;
         coefs(:, 2:(nc+1)) = r .* cos(theta);
         coefs(:, (nc+2):end) = r.* sin(theta);
