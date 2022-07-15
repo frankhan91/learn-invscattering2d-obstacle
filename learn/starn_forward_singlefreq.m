@@ -65,7 +65,7 @@ nppw = max(2*nc, 20);
 coefs = coefs_val(1, :)';
 src_info = geometries.starn(coefs,nc,n);
 L = src_info.L;
-n = max(300, ceil(nppw*L*abs(kh)/2/pi));
+n = max(300, 2*ceil(nppw*L*abs(kh)/4/pi));
 
 dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_n' int2str(n_tgt) '_' int2str(ndata)];
 if ~strcmp(data_prefix, '')
