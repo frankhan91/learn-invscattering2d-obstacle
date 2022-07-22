@@ -125,7 +125,7 @@ elseif array_id >= 1
     end_idx = min(end_idx, ndata);
     fprintf(['Start to generate training data indexed from ' num2str(start_idx) ...
     ' to ' num2str(end_idx) '\n'])
-    parfor idx=start_idx:end_idx
+    for idx=start_idx:end_idx
         data_name = strcat(train_data_dir, '/train_data_', num2str(idx),'.mat');
         if ~exist(data_name, 'file')
             rng(idx)

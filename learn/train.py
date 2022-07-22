@@ -59,6 +59,7 @@ def main():
     data_cfg = json.loads(valid_data["cfg_str"][0])
     coef_val = valid_data["coefs_val"]
     uscat_val = valid_data["uscat_val"]
+    norm_coef = np.linalg.norm(coef_val, axis=1)
     
     if network_type == 'convnet':
         tgt_valid = uscat_val.real
@@ -124,19 +125,13 @@ def main():
         torch.tensor(coefs_all, dtype=data_type)
     )
     del data_to_train
-    logger.info("Successfully load training data, time: {:.1f}s".format(time.time() - start_time))
+    logger.info("Successfully load training data, ndata {:3}, time: {:.1f}s".format(ndata, time.time() - start_time))
     
     tgt_valid = torch.tensor(tgt_valid, dtype=data_type)
     coef_val = torch.tensor(coef_val, dtype=data_type)
-    if torch.cuda.is_available():
-        pin_memory = True
-        num_workers = 4
-    else:
-        pin_memory = False
-        num_workers = 0
     train_loader = torch.utils.data.DataLoader(
         dataset, batch_size=train_cfg["batch_size"],
-        pin_memory=pin_memory, num_workers=num_workers
+        pin_memory=torch.cuda.is_available()
     )
     
     loss_fn = nn.MSELoss()
@@ -160,8 +155,9 @@ def main():
                 coef_pred = model(tgt_valid.to(device))
                 loss_train = current_loss / n_loss
                 loss_val = loss_fn(coef_pred, coef_val.to(device)).item()
-                train_logger.info('{:3}, Train Loss: {:.6f}, Val loss: {:.6f}, time: {:.1f}s'.format(
-                    e, loss_train, loss_val, (time.time() - start_time))
+                error_pred = torch.norm(coef_pred.cpu() - coef_val, dim=1).detach().numpy() / norm_coef
+                train_logger.info('{:3}, Train Loss: {:.6f}, Val loss: {:.6f}, pred err: {:.4f}, time: {:.1f}s'.format(
+                    e, loss_train, loss_val, np.mean(error_pred), (time.time() - start_time))
                 )
                 writer.add_scalar('loss_train', loss_train, e)
                 writer.add_scalar('loss_val', loss_val, e)
