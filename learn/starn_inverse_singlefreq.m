@@ -90,6 +90,7 @@ if strcmp(data_type, 'nn') && nc_test > 0
 end
 
 if strcmp(data_type, 'nn_stored')
+    n = 2*ceil(nppw*abs(kh)/2);
     pred_idx = array_id;
     coef = nn_pred.coef_val(pred_idx, :);
     coef_pred = nn_pred.coef_pred(pred_idx, :);
@@ -99,8 +100,7 @@ end
 src_info_ex = geometries.starn(coef,nc,n);
 L = src_info_ex.L;
 for ik=1:nk
-   n = 2*ceil(nppw*L*abs(kh(ik))/4/pi);
-   n = max(n,300);
+   n = max(300,2*ceil(nppw*L*abs(kh)/4/pi));
    src_info_ex = geometries.starn(coef,nc,n);
    freq = fft(src_info_ex.H);
    freq_tail = freq(n_curv+2:end-n_curv);

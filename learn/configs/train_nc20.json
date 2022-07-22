@@ -8,7 +8,7 @@
     "optimizer": "SGD",
     "lr": 0.16,
     "momentum": 0.9,
-    "milestones": [300, 400, 500],
+    "milestones": [1500],
     "gamma": 0.5,
     "network_type": "convnet",
     "out_channels": 7,

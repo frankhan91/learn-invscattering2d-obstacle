@@ -4,7 +4,7 @@
 close all
 clearvars
 
-data_type = 'nn_stored'; % 'random' or 'nn_stored' or 'nn';
+data_type = 'nn'; % 'random' or 'nn_stored' or 'nn';
 env_path = readlines('env_path.txt');
 env_path = env_path(1); % only read the first line
 
@@ -31,13 +31,13 @@ end
 cfg = jsondecode(cfg_str);
 ndata = cfg.ndata;
 n  = 300;
-
+num = 0; % index for random seed and saved figure
 % max number of wiggles
 nc = cfg.nc;
 % Set of frequencies (k_{i})
 % CAREFUL: need to enter manually
-dk = 1;
-kh = cfg.kh:dk:cfg.kh+9;
+dk = 0.5;
+kh = 1:dk:10;
 
 
 % Test obstacle Frechet derivative for Dirichlet problem
@@ -76,6 +76,7 @@ sensor_info.t_dir = t_dir_grid;
 
 % parameters 'a'
 if strcmp(data_type, 'random') || strcmp(data_type, 'nn')
+    rng(num)
     coef = sample_fc(cfg, 1);
 end
 
@@ -141,7 +142,7 @@ bc.type = 'Dirichlet';
 bc.invtype = 'o';
 optim_opts.optim_type = cfg.optim_type;
 % Gauss-Newton is much faster than SD in recursive linearization
-% optim_opts.optim_type = 'gn';
+% optim_opts.optim_type = 'sd';
 optim_opts.filter_type = cfg.filter_type;
 %optim_opts.eps_curv = 0.3;
 %optim_opts.eps_res = 1e-10;
@@ -173,11 +174,11 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     plot(0, 0, 'r*');
     legend('true boundary', 'predicted boundary', 'solved by multi-frequency')
 end
-% w = 9;
-% h = 8;
-% set(gcf, 'PaperUnits', 'inches');
-% set(gcf, 'PaperSize', [w h]);
-% set(gcf, 'PaperPositionMode', 'manual');
-% set(gcf, 'PaperPosition', [0 0 w h]);
-% set(gcf, 'renderer', 'painters');
-% print(gcf, '-dpdf', ['./figs/predmultinc' int2str(nc) '_k' int2str(cfg.kh) '_' int2str(1) '.pdf']);
+w = 9;
+h = 8;
+set(gcf, 'PaperUnits', 'inches');
+set(gcf, 'PaperSize', [w h]);
+set(gcf, 'PaperPositionMode', 'manual');
+set(gcf, 'PaperPosition', [0 0 w h]);
+set(gcf, 'renderer', 'painters');
+print(gcf, '-dpdf', ['./figs/predmultinc' int2str(nc) '_k' int2str(cfg.kh) '_' int2str(num) 'nn.pdf']);
