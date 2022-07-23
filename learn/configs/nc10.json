@@ -6,7 +6,7 @@
     "decay": 0,
     "ndata": 1000,
     "nvalid": 50,
-    "ndata_per_array": 100,
+    "ndata_per_mat": 100,
     "nk": 1,
     "kh": 10,
     "n_tgt": 48,
