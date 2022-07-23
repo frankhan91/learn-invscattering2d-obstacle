@@ -44,7 +44,7 @@ def parse_args():
 
 def read_data(data_dir):
     data = scipy.io.loadmat(data_dir)
-    return data["coefs"][:,0], data["uscat"]
+    return data["coefs"], data["uscat"]
 
 def main():
     start_time = time.time()
@@ -99,17 +99,20 @@ def main():
     # load training data
     data_dir = os.path.join(args.dirname, "train_data")
     ndata = train_cfg["ndata_train"]
-    ndata_avail = len(os.listdir(data_dir))
+    ndata_per_mat = data_cfg["ndata_per_mat"]
+    ndata_avail = len(os.listdir(data_dir)) * ndata_per_mat
     if ndata == 0:
         ndata = ndata_avail
     elif ndata > ndata_avail:
         logger.warning("ndata_train={:3} out numbers the data_set, will train with ndata={:3}".format(ndata, ndata_avail))
         ndata = ndata_avail
+    nmat = int(ndata / ndata_per_mat)
     pool = Pool()
     temp_dir = os.path.join(data_dir, "train_data_")
-    data_all = pool.map(read_data, [temp_dir+str(idx)+'.mat' for idx in range(1,ndata+1)])
-    coefs_all = np.vstack([data[0][None,:] for data in data_all])
-    uscat_all = np.vstack([data[1][None,:,:] for data in data_all])
+    data_all = pool.map(read_data, [temp_dir+str((mat_id-1)*ndata_per_mat+1)+'-'+str(mat_id*ndata_per_mat)+'.mat'
+                                    for mat_id in range(1,nmat+1)])
+    coefs_all = np.vstack([data[0] for data in data_all])
+    uscat_all = np.vstack([data[1] for data in data_all])
     del data_all
     if network_type == 'convnet':
         data_to_train = (uscat_all.real[:, None, :, :]-mean) / std

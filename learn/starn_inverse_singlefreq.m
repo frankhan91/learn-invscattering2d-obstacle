@@ -1,8 +1,8 @@
 % This script solves inverse problem based on single frequency data. The
 % data is either generated randomly in this script or read from pred.mat
-function starn_inverse_singlefreq(array_id)
+function starn_inverse_singlefreq(pred_idx)
 close all
-clearvars -except array_id
+clearvars -except pred_idx
 
 data_type = 'nn'; % 'random' or 'nn_stored' or 'nn';
 env_path = readlines('env_path.txt');
@@ -77,7 +77,7 @@ sensor_info.t_dir = t_dir_grid;
 
 nppw = max(2*nc, 20);
 if strcmp(data_type, 'random') || strcmp(data_type, 'nn')
-    rng(array_id+ndata)
+    rng(pred_idx+ndata)
     coef = sample_fc(cfg, 1);
 end
 
@@ -91,7 +91,6 @@ end
 
 if strcmp(data_type, 'nn_stored')
     n = 2*ceil(nppw*abs(kh)/2);
-    pred_idx = array_id;
     coef = nn_pred.coef_val(pred_idx, :);
     coef_pred = nn_pred.coef_pred(pred_idx, :);
     src_info_pred = geometries.starn(coef_pred,nc,n);
@@ -112,7 +111,6 @@ end
 
 if strcmp(data_type, 'nn')
     % apply the stored predictor
-    pred_idx = array_id;
     dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_n' int2str(n_tgt) '_' int2str(ndata)];
     temp_pred_path = strcat(dirname, '/temp.mat');
     coefs_all = coef;
