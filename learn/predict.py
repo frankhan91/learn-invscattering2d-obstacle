@@ -54,6 +54,10 @@ def main():
     
     # apply the predictor to obtian an initialization
     uscat_all = data["uscat_all"]
+    if train_cfg["n_dir_train"] > 0:
+        uscat_all = uscat_all[:,0:train_cfg["n_dir_train"],:]
+    if train_cfg["n_tgt_train"] > 0:
+        uscat_all = uscat_all[:,:,0:train_cfg["n_tgt_train"]]
     if train_cfg["network_type"] == 'convnet':
         data_to_predict = (uscat_all.real[:,None,:,:]-mean) / std # the scattered data
     elif train_cfg["network_type"] == 'complexnet':

@@ -13,20 +13,27 @@ class ConvNet(nn.Module):
         kernel_size = train_cfg["kernel_size"]
         paddle = train_cfg["paddle"]
         linear_dim = train_cfg["linear_dim"]
-        n_tgt = data_cfg["n_tgt"]
         n_dir = data_cfg["n_dir"]
+        n_tgt = data_cfg["n_tgt"]
+        padding_mode = 'circular'
+        if train_cfg["n_dir_train"] > 0:
+            n_dir = train_cfg["n_dir_train"]
+            padding_mode = 'zeros'
+        if train_cfg["n_tgt_train"] > 0:
+            n_tgt = train_cfg["n_tgt_train"]
+            padding_mode = 'zeros'
         # TODO: be more flexible to more layers
-        outdim1 = n_tgt + 2*paddle - kernel_size + 1
-        outdim2 = n_dir + 2*paddle - kernel_size + 1
+        outdim1 = n_dir + 2*paddle - kernel_size + 1
+        outdim2 = n_tgt + 2*paddle - kernel_size + 1
         outdim1 = int(outdim1/2)
         outdim2 = int(outdim2/2)
         outdim1 = outdim1 + 2*paddle - kernel_size + 1
         outdim2 = outdim2 + 2*paddle - kernel_size + 1
         outdim1 = int(outdim1/2)
         outdim2 = int(outdim2/2)
-        self.conv1 = nn.Conv2d(1, out_channels, kernel_size, padding=paddle, padding_mode='circular')
+        self.conv1 = nn.Conv2d(1, out_channels, kernel_size, padding=paddle, padding_mode=padding_mode)
         self.pool = nn.AvgPool2d((2, 2), stride=(2, 2))
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size, padding=paddle, padding_mode='circular')
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size, padding=paddle, padding_mode=padding_mode)
         self.fc1 = nn.Linear(out_channels * outdim1 * outdim2, linear_dim[0])
         self.fc2 = nn.Linear(linear_dim[0], linear_dim[1])
         self.fc3 = nn.Linear(linear_dim[1], 2 * nc + 1)
@@ -49,8 +56,10 @@ class ComplexNet(nn.Module):
         kernel_size = train_cfg["kernel_size"]
         paddle = train_cfg["paddle"]
         linear_dim = train_cfg["linear_dim"]
-        n_tgt = data_cfg["n_tgt"]
         n_dir = data_cfg["n_dir"]
+        n_tgt = data_cfg["n_tgt"]
+        if train_cfg["n_dir_train"] > 0 or train_cfg["n_tgt_train"] > 0:
+            raise Exception("Cannot train Fourier net with partial data")
         # TODO: be more flexible to more layers
         outdim1 = n_tgt + 2*paddle - kernel_size + 1
         outdim2 = n_dir + 2*paddle - kernel_size + 1

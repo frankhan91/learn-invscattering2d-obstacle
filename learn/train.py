@@ -60,6 +60,10 @@ def main():
     coef_val = valid_data["coefs_val"]
     uscat_val = valid_data["uscat_val"]
     norm_coef = np.linalg.norm(coef_val, axis=1)
+    if train_cfg["n_dir_train"] > 0:
+        uscat_val = uscat_val[:,0:train_cfg["n_dir_train"],:]
+    if train_cfg["n_tgt_train"] > 0:
+        uscat_val = uscat_val[:,:,0:train_cfg["n_tgt_train"]]
     
     if network_type == 'convnet':
         tgt_valid = uscat_val.real
@@ -83,6 +87,8 @@ def main():
         
     model_dir=os.path.join(args.dirname, args.model_name)
     writer = SummaryWriter(model_dir) # will create model_name folder
+    os.makedirs(os.path.join(model_dir,"inverse"), exist_ok=True)
+    os.makedirs(os.path.join(model_dir,"figs"), exist_ok=True)
     f = open(os.path.join(model_dir, "mean_std.txt"), 'w')
     if network_type == 'convnet':
         f.writelines(f"{mean}\n{std}")
@@ -113,6 +119,12 @@ def main():
                                     for mat_id in range(1,nmat+1)])
     coefs_all = np.vstack([data[0] for data in data_all])
     uscat_all = np.vstack([data[1] for data in data_all])
+    if train_cfg["n_dir_train"] > 0:
+        logger.info("Training using partial data: num incident direction {:3}".format(train_cfg["n_dir_train"]))
+        uscat_all = uscat_all[:,0:train_cfg["n_dir_train"],:]
+    if train_cfg["n_tgt_train"] > 0:
+        logger.info("Training using partial data: num scattered direction {:3}".format(train_cfg["n_tgt_train"]))
+        uscat_all = uscat_all[:,:,0:train_cfg["n_tgt_train"]]
     del data_all
     if network_type == 'convnet':
         data_to_train = (uscat_all.real[:, None, :, :]-mean) / std
@@ -141,7 +153,7 @@ def main():
     epoch = train_cfg["epoch"]
     def train(model, device, train_loader, optimizer, epoch, scheduler, model_dir):
         train_logger = logger.getChild("Train Epoch")
-        for e in range(epoch):
+        for e in range(epoch+1):
             n_loss = 0
             current_loss = 0.0
             for batch_idx, (data, target) in enumerate(train_loader):
