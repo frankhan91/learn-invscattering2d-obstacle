@@ -16,6 +16,7 @@ class ConvNet(nn.Module):
         n_dir = data_cfg["n_dir"]
         n_tgt = data_cfg["n_tgt"]
         padding_mode = 'circular'
+        # will use 'zeros' padding if any of n_dir_train or n_tgt_train > 0
         if train_cfg["n_dir_train"] > 0:
             n_dir = train_cfg["n_dir_train"]
             padding_mode = 'zeros'

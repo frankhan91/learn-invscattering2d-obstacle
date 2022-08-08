@@ -116,7 +116,7 @@ if strcmp(data_type, 'nn')
 end
 
 if strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
-    err_pred = norm(coef - coef_pred) / norm(coef)
+    err_l2 = norm(coef - coef_pred) / norm(coef)
 end
 u_meas = cell(1,1);
 u_meas0 = [];
@@ -174,8 +174,8 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
         src_info_ex.xs; src_info_ex.ys]; %pred; refined; true
     d1 = pdist2(inverse_result(1:2,:)', inverse_result(5:6,:)');
     d2 = pdist2(inverse_result(3:4,:)', inverse_result(5:6,:)');
-    error_shape = [mean([min(d1), min(d1,[],2)']), mean([min(d2), min(d2,[],2)'])] %pred, refined
-    save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "inverse_result", "error_shape")
+    err_Chamfer = [mean([min(d1), min(d1,[],2)']), mean([min(d2), min(d2,[],2)'])] %pred, refined
+    save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "inverse_result", "err_Chamfer", "err_l2")
     plot(src_info_pred.xs,src_info_pred.ys,'r:', 'LineWidth',2);
     plot(src_info_pred_res.xs,src_info_pred_res.ys,'m-.', 'LineWidth',2);
     plot(0, 0, 'r*');
