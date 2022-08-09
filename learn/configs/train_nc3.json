@@ -3,6 +3,8 @@
     "batch_size": 20,
     "epoch": 500,
     "ndata_train": 0,
+    "n_dir_train": 0,
+    "n_tgt_train": 0,
     "valid_freq": 10,
     "save_every_nepoch": 0,
     "optimizer": "SGD",

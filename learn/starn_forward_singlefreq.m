@@ -18,13 +18,12 @@ cfg_path = './configs/nc3.json';
 data_prefix = '';
 cfg_str = fileread(cfg_path);
 cfg = jsondecode(cfg_str);
-n  = 300;
-
 ndata = cfg.ndata;
 nvalid = cfg.nvalid;
 % max number of wiggles
 nc = cfg.nc;
 kh = cfg.kh;
+n  = max(300, 50*nc);
 
 % Test obstacle Frechet derivative for Dirichlet problem
 bc = [];
@@ -61,11 +60,6 @@ sensor_info.t_dir = t_dir_grid;
 rng(ndata+nvalid)
 coefs_val = sample_fc(cfg, nvalid);
 
-nppw = max(2*nc, 20);
-coefs = coefs_val(1, :)';
-src_info = geometries.starn(coefs,nc,n);
-L = src_info.L;
-n = max(300, 2*ceil(nppw*L*abs(kh)/4/pi));
 
 dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_n' int2str(n_tgt) '_' int2str(ndata)];
 if ~strcmp(data_prefix, '')
@@ -88,7 +82,8 @@ if nargin == 0 || mat_id == 0
         fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
         uscat_val(idx, :, :) = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
     end
-
+    
+    src_info = geometries.starn(coefs_val(1, :)',nc,n);
     figure
     uscat_tgt = squeeze(uscat_val(1, :, :));
     % imagesc(abs(fftshift(fft2(uscat_tgt))))
