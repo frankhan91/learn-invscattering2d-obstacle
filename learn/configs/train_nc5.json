@@ -13,9 +13,9 @@
     "milestones": [4900],
     "gamma": 0.5,
     "network_type": "convnet",
-    "out_channels": 10,
+    "out_channels": 5,
     "kernel_size": 9,
     "paddle": 4,
-    "linear_dim": [500, 100],
+    "linear_dim": [250, 50],
     "data_type": "float32"
 }

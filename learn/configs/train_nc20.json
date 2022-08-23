@@ -10,12 +10,12 @@
     "optimizer": "SGD",
     "lr": 0.16,
     "momentum": 0.9,
-    "milestones": [1500],
+    "milestones": [1900],
     "gamma": 0.5,
     "network_type": "convnet",
-    "out_channels": 7,
+    "out_channels": 20,
     "kernel_size": 9,
     "paddle": 4,
-    "linear_dim": [512, 128],
+    "linear_dim": [1000, 200],
     "data_type": "float32"
 }
