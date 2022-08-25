@@ -23,6 +23,8 @@ def parse_args():
     parser.add_argument("--model_name", default="test", type=str)
     parser.add_argument("--train_cfg_path", default=None, type=str)
     parser.add_argument("--retrain", default=None, type=str) #format: test/model_100.pt
+    parser.add_argument("--ndata_train", default=None, type=int)
+    parser.add_argument("--cfg_by_nc", default=False, type=bool) #enter whatever to get a True
     args = parser.parse_args()
     if args.retrain:
         old_model_name = args.retrain[:args.retrain.find('/' or "\\")]
@@ -51,7 +53,7 @@ def main():
     args, train_cfg = parse_args()
     if train_cfg["data_type"] == "float32": data_type = torch.float32
     elif train_cfg["data_type"] == "float64": data_type = torch.float64
-    logger.info("Train data from {}".format(args.dirname))
+    logger.info("train data from {}".format(args.dirname))
     logger.info("model name {}".format(args.model_name))
     fname = os.path.join(args.dirname, "valid_data.mat")
     network_type = train_cfg["network_type"]
@@ -64,12 +66,25 @@ def main():
         uscat_val = uscat_val[:,0:train_cfg["n_dir_train"],:]
     if train_cfg["n_tgt_train"] > 0:
         uscat_val = uscat_val[:,:,0:train_cfg["n_tgt_train"]]
+        
+    # change the train config for the error curve
+    if args.cfg_by_nc:
+        nc = data_cfg["nc"]
+        logger.info("use train config with nc={:3} for the error curve".format(nc))
+        train_cfg["batch_size"] = 100
+        train_cfg["epoch"] = 5000
+        train_cfg["save_every_nepoch"] = 0
+        train_cfg["milestones"] = [4900]
+        train_cfg["out_channels"] = nc
+        train_cfg["kernel_size"] = 9
+        train_cfg["paddle"] = 4
+        train_cfg["linear_dim"] = [50*nc, 10*nc]
     
     if network_type == 'convnet':
         tgt_valid = uscat_val.real
         mean = np.mean(tgt_valid)
         std = np.std(tgt_valid)
-        logger.info("Model convnet, mean %.8e, std %.8e", mean, std)
+        logger.info("model convnet, mean %.8e, std %.8e", mean, std)
         tgt_valid = (tgt_valid[:, None, :, :]-mean) / std
     elif network_type == 'complexnet':
         uscat_ft = sfft.fft2(uscat_val)
@@ -80,7 +95,7 @@ def main():
         mean_i = np.mean(data_imag)
         std_r = np.std(data_real)
         std_i = np.std(data_imag)
-        logger.info("Model complexnet, mean and std for real %.8e %.8e, imag %.8e %.8e", mean_r, std_r, mean_i, std_i)
+        logger.info("model complexnet, mean and std for real %.8e %.8e, imag %.8e %.8e", mean_r, std_r, mean_i, std_i)
         data_real = (data_real[:, None, :, :]-mean_r) / std_r
         data_imag = (data_imag[:, None, :, :]-mean_i) / std_i
         tgt_valid = np.concatenate((data_real, data_imag), axis=1)
@@ -105,6 +120,7 @@ def main():
     # load training data
     data_dir = os.path.join(args.dirname, "train_data")
     ndata = train_cfg["ndata_train"]
+    if args.ndata_train: ndata = args.ndata_train
     ndata_per_mat = data_cfg["ndata_per_mat"]
     ndata_avail = len(os.listdir(data_dir)) * ndata_per_mat
     if ndata == 0:
@@ -112,18 +128,18 @@ def main():
     elif ndata > ndata_avail:
         logger.warning("ndata_train={:3} out numbers the data_set, will train with ndata={:3}".format(ndata, ndata_avail))
         ndata = ndata_avail
-    nmat = int(ndata / ndata_per_mat)
+    nmat = int(np.ceil(ndata / ndata_per_mat))
     pool = Pool()
     temp_dir = os.path.join(data_dir, "train_data_")
     data_all = pool.map(read_data, [temp_dir+str((mat_id-1)*ndata_per_mat+1)+'-'+str(mat_id*ndata_per_mat)+'.mat'
                                     for mat_id in range(1,nmat+1)])
-    coefs_all = np.vstack([data[0] for data in data_all])
-    uscat_all = np.vstack([data[1] for data in data_all])
+    coefs_all = (np.vstack([data[0] for data in data_all]))[:ndata,:]
+    uscat_all = (np.vstack([data[1] for data in data_all]))[:ndata,:,:]
     if train_cfg["n_dir_train"] > 0:
-        logger.info("Training using partial data: num incident direction {:3}".format(train_cfg["n_dir_train"]))
+        logger.info("training using partial data: num incident direction {:3}".format(train_cfg["n_dir_train"]))
         uscat_all = uscat_all[:,0:train_cfg["n_dir_train"],:]
     if train_cfg["n_tgt_train"] > 0:
-        logger.info("Training using partial data: num scattered direction {:3}".format(train_cfg["n_tgt_train"]))
+        logger.info("training using partial data: num scattered direction {:3}".format(train_cfg["n_tgt_train"]))
         uscat_all = uscat_all[:,:,0:train_cfg["n_tgt_train"]]
     del data_all
     if network_type == 'convnet':
@@ -140,7 +156,7 @@ def main():
         torch.tensor(coefs_all, dtype=data_type)
     )
     del data_to_train
-    logger.info("Successfully load training data, ndata {:3}, time: {:.1f}s".format(ndata, time.time() - start_time))
+    logger.info("successfully load training data, ndata {:3}, time: {:.1f}s".format(ndata, time.time() - start_time))
     
     tgt_valid = torch.tensor(tgt_valid, dtype=data_type)
     coef_val = torch.tensor(coef_val, dtype=data_type)
@@ -156,6 +172,7 @@ def main():
         for e in range(epoch+1):
             n_loss = 0
             current_loss = 0.0
+            final_error = 1.0
             for batch_idx, (data, target) in enumerate(train_loader):
                 data = (data.to(device)).type(data_type)
                 target = (target.to(device)).type(data_type)
@@ -170,9 +187,10 @@ def main():
                 coef_pred = model(tgt_valid.to(device))
                 loss_train = current_loss / n_loss
                 loss_val = loss_fn(coef_pred, coef_val.to(device)).item()
-                error_pred = torch.norm(coef_pred.cpu() - coef_val, dim=1).detach().numpy() / norm_coef
-                train_logger.info('{:3}, Train Loss: {:.6f}, Val loss: {:.6f}, pred err: {:.4f}, time: {:.1f}s'.format(
-                    e, loss_train, loss_val, np.mean(error_pred), (time.time() - start_time))
+                error_pred = np.mean(torch.norm(coef_pred.cpu() - coef_val, dim=1).detach().numpy() / norm_coef)
+                final_error = np.minimum(final_error, error_pred)
+                train_logger.info('{:3}, train Loss: {:.6f}, val loss: {:.6f}, pred err: {:.4f}, time: {:.1f}s'.format(
+                    e, loss_train, loss_val, error_pred, (time.time() - start_time))
                 )
                 writer.add_scalar('loss_train', loss_train, e)
                 writer.add_scalar('loss_val', loss_val, e)
@@ -181,6 +199,7 @@ def main():
             if train_cfg["save_every_nepoch"] > 0 and e % train_cfg["save_every_nepoch"] == 0 and e > 0:
                 torch.save(model.state_dict(), os.path.join(model_dir, "model_"+str(e)+".pt"))
             scheduler.step()
+        logger.info('final pred err {:.4f}'.format(final_error))
         return
         
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -190,7 +209,7 @@ def main():
         model = network.ComplexNet(data_cfg, train_cfg)
     model.type(data_type)
     if args.retrain:
-        logger.info("Retrain model %s", args.retrain)
+        logger.info("retrain model %s", args.retrain)
         model.load_state_dict(torch.load(os.path.join(args.dirname, args.retrain), map_location=device))
     model = model.to(device)
     

@@ -1,0 +1,17 @@
+{
+    "nc": 15,
+    "dist_type": "uniform_radius",
+    "fc_cst_range": [1, 1.2],
+    "fc_max": 0.1,
+    "decay": 0,
+    "ndata": 20000,
+    "nvalid": 1000,
+    "ndata_per_mat": 100,
+    "nk": 1,
+    "kh": 25,
+    "n_tgt": 100,
+    "n_dir": 100,
+    "r_tgt": 10,
+    "optim_type": "min(gn,sd)",
+    "filter_type": "gauss-conv"
+}
