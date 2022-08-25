@@ -24,7 +24,7 @@ def parse_args():
     parser.add_argument("--train_cfg_path", default=None, type=str)
     parser.add_argument("--retrain", default=None, type=str) #format: test/model_100.pt
     parser.add_argument("--ndata_train", default=None, type=int)
-    parser.add_argument("--cfg_by_nc", default=False, type=bool) #enter whatever to get a True
+    parser.add_argument("--cfg_by_nc", action='store_true') #default False
     args = parser.parse_args()
     if args.retrain:
         old_model_name = args.retrain[:args.retrain.find('/' or "\\")]
@@ -71,6 +71,8 @@ def main():
     if args.cfg_by_nc:
         nc = data_cfg["nc"]
         logger.info("use train config with nc={:3} for the error curve".format(nc))
+        if data_cfg["fc_max"]!=0.1 or data_cfg["n_tgt"]!=100 or data_cfg["n_dir"]!=100:
+            logger.warning("data config does not match the setting for error curve")
         train_cfg["batch_size"] = 100
         train_cfg["epoch"] = 5000
         train_cfg["save_every_nepoch"] = 0
