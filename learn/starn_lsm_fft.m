@@ -1,17 +1,22 @@
+function starn_lsm_fft(lsm_idx)
 close all
-clearvars
+clearvars -except lsm_idx
+if nargin == 0
+    lsm_idx=1;
+end
+
 cfg_path = './configs/nc5.json';
 cfg_str = fileread(cfg_path);
 cfg = jsondecode(cfg_str);
 % max number of wiggles
 nc = cfg.nc;
-kh = cfg.kh;
 kh=5;
 n  = max(300, 50*nc);
 
 % parameters 'a'
-rng(0)
-coefs = sample_fc(cfg, 1);
+rng(1100) %in order to have the save validation data with DL method
+coefs_all = sample_fc(cfg, 100);
+coefs = coefs_all(lsm_idx,:); clear coefs_all
 % coefs = [1.1065    0.0303   -0.0099    0.0208   -0.1834    0.1053   -0.0658   -0.0723    0.0413    0.2207    0.2602];
 % coefs = [1.1731   -0.1557   -0.0933   -0.0094    0.1546    0.0249   -0.1576   -0.1490   -0.0734   -0.1267   -0.0028];
 % coefs = [1.0908   -0.1437    0.1244    0.1961    0.0937    0.0688    0.0658    0.0121   -0.0197    0.1634    0.0542];
@@ -78,10 +83,10 @@ value_max = 7;
 value_min = 4.6;
 step_size = 0.2;
 level_values = value_max:-step_size:value_min;
-figure;M=contour(xgrid0, ygrid0, Ig, level_values); hold on; plot(src_info.xs,src_info.ys,'k')
+figure;contour(xgrid0, ygrid0, Ig, level_values); hold on; plot(src_info.xs,src_info.ys,'k')
 perimeter = 10000;
 
-%% decide a threshold and the boundary
+% decide a threshold and the boundary
 count = 0;
 for value = level_values
     count = count + 1;
@@ -107,13 +112,10 @@ for value = level_values
     cur_perimeter = 0;
     for bdry_idx=1:num_connected
         cur_points = boundary{bdry_idx};
-        len_part = length(cur_points(1,:));
         perim = sum(vecnorm(diff(cur_points,1,2), 2,1) );
         if perim > cur_perimeter
             cur_perimeter = perim;
             points = cur_points;
-            longest_index = bdry_idx;
-            len = len_part;
         end
     end
 
@@ -143,7 +145,7 @@ end
 %make some data
 t = theta(1, 2:end);
 x = rho(1, 2:end);
-nc_lsm = 20;
+nc_lsm = 5;
 
 %file exchange submission
 [afit, bfit, yfit] = Fseries(t,x,nc_lsm);
@@ -162,8 +164,60 @@ coefs_lsm_fit = zeros([1,2*nc_lsm+1]);
 coefs_lsm_fit(1, 1) = afit(1) / 2;
 coefs_lsm_fit(1, 2:nc_lsm+1) = afit(2:end)';
 coefs_lsm_fit(1, nc_lsm+2:end) = bfit';
+if nc == nc_lsm
+    err_l2 = norm(coefs - coefs_lsm_fit) / norm(coefs);
+else
+    err_l2 = -1;
+end
 src_lsm = geometries.starn(coefs_lsm_fit,nc_lsm,n);
 plot(src_lsm.xs,src_lsm.ys);
-legend('true boundary', 'lsm boundary', 'fitted star shape from lsm boundary')
+
 dist = pdist2([src_info.xs; src_info.ys]', bdry_points');
-err_Chamfer = mean([min(dist), min(dist,[],2)'])
+err_Chamfer1 = mean([min(dist), min(dist,[],2)'])
+
+%% apply the inverse algorithm
+bc = [];
+bc.type = 'Dirichlet';
+bc.invtype = 'o';
+
+optim_opts = [];
+opts = [];
+opts.verbose=true;
+bc = [];
+bc.type = 'Dirichlet';
+bc.invtype = 'o';
+optim_opts.optim_type = 'sd';
+optim_opts.filter_type = cfg.filter_type;
+opts.store_src_info = true;
+u_meas_all = cell(1,1);
+u_meas_all{1} = u_meas;
+[inv_data_all_lsm,src_info_out_lsm] = rla.rla_inverse_solver(u_meas_all,bc,...
+                          optim_opts,opts,src_lsm);
+iter_count = inv_data_all_lsm{1}.iter_count;
+src_info_lsm_res = inv_data_all_lsm{1}.src_info_all{iter_count};
+%%
+plot(src_info_lsm_res.xs,src_info_lsm_res.ys);
+legend('true boundary', 'lsm boundary', 'fitted star shape from lsm boundary', 'refined boundary')
+dist_refined = pdist2([src_info_lsm_res.xs; src_info_lsm_res.ys]', [src_info.xs; src_info.ys]');
+err_Chamfer_refined = mean([min(dist_refined), min(dist_refined,[],2)']);
+err_Chamfer = [err_Chamfer1, err_Chamfer_refined];
+inverse_result = [src_lsm.xs; src_lsm.ys; src_info_lsm_res.xs; src_info_lsm_res.ys;...
+        src_info.xs; src_info.ys]; %lsm; refined; true
+if ~exist('./data/lsm', 'dir')
+    mkdir('./data/lsm');
+end
+if ~exist('./data/lsm/inverse', 'dir')
+    mkdir('./data/lsm/inverse');
+end
+save(['./data/lsm/inverse/inverse' num2str(lsm_idx) '.mat'], "inverse_result", "err_Chamfer", "err_l2")
+fprintf(['Chamfer error before refine ' num2str(err_Chamfer1) ', after refine ' num2str(err_Chamfer_refined) '\n'])
+w = 9;
+h = 8;
+set(gcf, 'PaperUnits', 'inches');
+set(gcf, 'PaperSize', [w h]);
+set(gcf, 'PaperPositionMode', 'manual');
+set(gcf, 'PaperPosition', [0 0 w h]);
+set(gcf, 'renderer', 'painters');
+fig_path = ['./figs/nc' int2str(nc) '_k' int2str(kh) '_nclsm' int2str(nc_lsm) '_' int2str(lsm_idx) '.pdf'];
+print(gcf, '-dpdf', fig_path);
+end

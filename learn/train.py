@@ -171,10 +171,10 @@ def main():
     epoch = train_cfg["epoch"]
     def train(model, device, train_loader, optimizer, epoch, scheduler, model_dir):
         train_logger = logger.getChild("Train Epoch")
+        final_error = 1.0
         for e in range(epoch+1):
             n_loss = 0
             current_loss = 0.0
-            final_error = 1.0
             for batch_idx, (data, target) in enumerate(train_loader):
                 data = (data.to(device)).type(data_type)
                 target = (target.to(device)).type(data_type)
