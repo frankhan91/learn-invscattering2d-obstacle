@@ -8,7 +8,7 @@ function p = genpath_ex(root)
   for i = 1:length(files)
     if ~files(i).isdir, continue; end
     d = files(i).name;
-    if d(1) == '.' || strcmpi(d,'devtools') || strcmpi(d,'docs') || d(1) == '+' || d(1) == '@' || strcmpi(d,'clmtest') || strcmpi(d,'demo') || strcmpi(d,'fortran') , continue; end
+    if d(1) == '.' || strcmpi(d,'devtools') || strcmpi(d,'docs') || d(1) == '+' || d(1) == '@' || strcmpi(d,'clmtest') || strcmpi(d,'demo') || strcmpi(d,'fortran') || strcmpi(d,'examples') || strcmpi(d,'learn') , continue; end
     p = [p fullfile(root,d) pathsep];
     p = [p genpath_ex(fullfile(root,d))];
   end
