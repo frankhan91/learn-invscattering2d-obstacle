@@ -71,16 +71,16 @@ def main():
     if args.cfg_by_nc:
         nc = data_cfg["nc"]
         logger.info("use train config with nc={:3} for the error curve".format(nc))
-        # if data_cfg["fc_max"]!=0.1 or data_cfg["n_tgt"]!=100 or data_cfg["n_dir"]!=100:
-        #     logger.warning("data config does not match the setting for error curve")
-        # train_cfg["batch_size"] = 100
+        if data_cfg["fc_max"]!=0.1 or data_cfg["n_tgt"]!=100 or data_cfg["n_dir"]!=100:
+            logger.warning("data config does not match the setting for error curve")
+        train_cfg["batch_size"] = 100
         train_cfg["epoch"] = 5000
         train_cfg["save_every_nepoch"] = 0
         train_cfg["milestones"] = [4900]
         train_cfg["out_channels"] = nc
-        # train_cfg["kernel_size"] = 9
-        # train_cfg["paddle"] = 4
-        # train_cfg["linear_dim"] = [50*nc, 10*nc]
+        train_cfg["kernel_size"] = 9
+        train_cfg["paddle"] = 4
+        train_cfg["linear_dim"] = [50*nc, 10*nc]
     
     if network_type == 'convnet':
         tgt_valid = uscat_val.real

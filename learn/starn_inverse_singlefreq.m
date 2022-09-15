@@ -11,7 +11,7 @@ env_path = env_path(1); % only read the first line
 test_origin_alg = false;
 if strcmp(data_type, 'nn_stored')
     % CAREFUL: need to enter manually
-    pred_path = './data/star5_kh10_n48_500/valid_predby_test.mat';
+    pred_path = './data/star3_kh10_n48_100/valid_predby_test.mat';
     nn_pred = load(pred_path);
     cfg_str = nn_pred.cfg_str;
 elseif strcmp(data_type, 'random')
