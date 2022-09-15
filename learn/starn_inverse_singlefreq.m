@@ -4,13 +4,14 @@ function starn_inverse_singlefreq(pred_idx)
 close all
 clearvars -except pred_idx
 
-data_type = 'nn'; % 'random' or 'nn_stored' or 'nn';
+data_type = 'nn_stored'; % 'random' or 'nn_stored' or 'nn';
+star_specific = true;
 env_path = readlines('env_path.txt');
 env_path = env_path(1); % only read the first line
 test_origin_alg = false;
 if strcmp(data_type, 'nn_stored')
     % CAREFUL: need to enter manually
-    pred_path = './data/star3_kh10_n48_100/valid_predby_test.mat';
+    pred_path = './data/star5_kh10_n48_500/valid_predby_test.mat';
     nn_pred = load(pred_path);
     cfg_str = nn_pred.cfg_str;
 elseif strcmp(data_type, 'random')
@@ -131,25 +132,47 @@ u_meas0.t_dir = sensor_info.t_dir;
 u_meas0.err_est = erra;
 u_meas{1} = u_meas0;
 
-optim_opts = [];
-opts = [];
-opts.verbose=true;
-bc = [];
-bc.type = 'Dirichlet';
-bc.invtype = 'o';
-optim_opts.optim_type = cfg.optim_type;
-optim_opts.filter_type = cfg.filter_type;
-optim_opts.n_curv = n_curv;
-optim_opts.optim_type = 'sd'; model_name=[model_name optim_opts.optim_type];
-%optim_opts.eps_curv = 0.1;
-%optim_opts.eps_res = 1e-10;
-%optim_opts.eps_upd = 1e-10;
-opts.store_src_info = true;
+if star_specific
+    umeas = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
+    model_name = [model_name '_star'];
+    inverse_inputs = [];
+    inverse_inputs.nc = nc;
+    inverse_inputs.kh = kh;
+    inverse_inputs.n_dir = n_dir;
+    inverse_inputs.n_tgt = n_tgt;
+    inverse_inputs.n = n;
+    inverse_inputs.r_tgt = r_tgt;
+%     inverse_inputs.alpha = 1;
+%     inverse_inputs.eps_step = 5e-8;
+%     inverse_inputs.eps_res = 1e-6;
+%     inverse_inputs.max_it      = 20;
+else
+    optim_opts = [];
+    opts = [];
+    opts.verbose=true;
+    bc = [];
+    bc.type = 'Dirichlet';
+    bc.invtype = 'o';
+    optim_opts.optim_type = cfg.optim_type;
+    optim_opts.filter_type = cfg.filter_type;
+    optim_opts.n_curv = n_curv;
+    optim_opts.optim_type = 'sd'; model_name=[model_name optim_opts.optim_type];
+    %optim_opts.eps_curv = 0.1;
+    %optim_opts.eps_res = 1e-10;
+    %optim_opts.eps_upd = 1e-10;
+    opts.store_src_info = true;
+end
+
 if test_origin_alg
-    [inv_data_all,src_info_out] = rla.rla_inverse_solver(u_meas,bc,...
-                              optim_opts,opts);
-    iter_count = inv_data_all{1}.iter_count;
-    src_info_default_res = inv_data_all{1}.src_info_all{iter_count};
+    if star_specific
+        coef_out = starn_specific_inverse(umeas, [1,zeros(1,2*nc)],inverse_inputs);
+        src_info_default_res = geometries.starn(coef_out,nc,n);
+    else
+        [inv_data_all,src_info_out] = rla.rla_inverse_solver(u_meas,bc,...
+                                  optim_opts,opts);
+        iter_count = inv_data_all{1}.iter_count;
+        src_info_default_res = inv_data_all{1}.src_info_all{iter_count};
+    end
 end
 figure
 hold on
@@ -166,10 +189,15 @@ if strcmp(data_type, 'random')
         legend('true boundary', '')
     end
 elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
-    [inv_data_all_pred,src_info_out_pred] = rla.rla_inverse_solver(u_meas,bc,...
-                          optim_opts,opts,src_info_pred);
-    iter_count = inv_data_all_pred{1}.iter_count;
-    src_info_pred_res = inv_data_all_pred{1}.src_info_all{iter_count};
+    if star_specific
+        coef_out = starn_specific_inverse(umeas, coef_pred,inverse_inputs);
+        src_info_pred_res = geometries.starn(coef_out,nc,n);
+    else
+        [inv_data_all_pred,~] = rla.rla_inverse_solver(u_meas,bc,...
+                              optim_opts,opts,src_info_pred);
+        iter_count = inv_data_all_pred{1}.iter_count;
+        src_info_pred_res = inv_data_all_pred{1}.src_info_all{iter_count};
+    end
     inverse_result = [src_info_pred.xs; src_info_pred.ys; src_info_pred_res.xs; src_info_pred_res.ys;...
         src_info_ex.xs; src_info_ex.ys]; %pred; refined; true
     d1 = pdist2(inverse_result(1:2,:)', inverse_result(5:6,:)');

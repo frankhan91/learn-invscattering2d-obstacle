@@ -71,16 +71,16 @@ def main():
     if args.cfg_by_nc:
         nc = data_cfg["nc"]
         logger.info("use train config with nc={:3} for the error curve".format(nc))
-        if data_cfg["fc_max"]!=0.1 or data_cfg["n_tgt"]!=100 or data_cfg["n_dir"]!=100:
-            logger.warning("data config does not match the setting for error curve")
-        train_cfg["batch_size"] = 100
+        # if data_cfg["fc_max"]!=0.1 or data_cfg["n_tgt"]!=100 or data_cfg["n_dir"]!=100:
+        #     logger.warning("data config does not match the setting for error curve")
+        # train_cfg["batch_size"] = 100
         train_cfg["epoch"] = 5000
         train_cfg["save_every_nepoch"] = 0
         train_cfg["milestones"] = [4900]
         train_cfg["out_channels"] = nc
-        train_cfg["kernel_size"] = 9
-        train_cfg["paddle"] = 4
-        train_cfg["linear_dim"] = [50*nc, 10*nc]
+        # train_cfg["kernel_size"] = 9
+        # train_cfg["paddle"] = 4
+        # train_cfg["linear_dim"] = [50*nc, 10*nc]
     
     if network_type == 'convnet':
         tgt_valid = uscat_val.real
@@ -171,7 +171,8 @@ def main():
     epoch = train_cfg["epoch"]
     def train(model, device, train_loader, optimizer, epoch, scheduler, model_dir):
         train_logger = logger.getChild("Train Epoch")
-        final_error = 1.0
+        final_error_rel = 1.0
+        final_error_abs = 10.0
         for e in range(epoch+1):
             n_loss = 0
             current_loss = 0.0
@@ -189,10 +190,13 @@ def main():
                 coef_pred = model(tgt_valid.to(device))
                 loss_train = current_loss / n_loss
                 loss_val = loss_fn(coef_pred, coef_val.to(device)).item()
-                error_pred = np.mean(torch.norm(coef_pred.cpu() - coef_val, dim=1).detach().numpy() / norm_coef)
-                final_error = np.minimum(final_error, error_pred)
-                train_logger.info('{:3}, train Loss: {:.6f}, val loss: {:.6f}, pred err: {:.4f}, time: {:.1f}s'.format(
-                    e, loss_train, loss_val, error_pred, (time.time() - start_time))
+                diff = torch.norm(coef_pred.cpu() - coef_val, dim=1).detach().numpy()
+                error_rel = np.mean(diff / norm_coef)
+                final_error_rel = np.minimum(final_error_rel, error_rel)
+                error_abs = np.mean(diff)
+                final_error_abs = np.minimum(final_error_abs, error_abs)
+                train_logger.info('{:3}, train Loss: {:.6f}, val loss: {:.6f}, rel err: {:.4f}, abs err: {:.4f}, time: {:.1f}s'.format(
+                    e, loss_train, loss_val, error_rel, error_abs, (time.time() - start_time))
                 )
                 writer.add_scalar('loss_train', loss_train, e)
                 writer.add_scalar('loss_val', loss_val, e)
@@ -201,7 +205,7 @@ def main():
             if train_cfg["save_every_nepoch"] > 0 and e % train_cfg["save_every_nepoch"] == 0 and e > 0:
                 torch.save(model.state_dict(), os.path.join(model_dir, "model_"+str(e)+".pt"))
             scheduler.step()
-        logger.info('final pred err {:.4f}'.format(final_error))
+        logger.info('final rel err {:.4f}, abs err {:.4f}'.format(final_error_rel, final_error_abs))
         return
         
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
