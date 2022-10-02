@@ -1,4 +1,4 @@
-function [Ig,xgrid0,ygrid0] = lsm_tensor(n_tgt,n_dir,u_meas,alpha)
+function [Ig,xgrid0,ygrid0] = lsm_tensor(n_tgt,n_dir,u_meas,alpha,partial)
 % This function evaluates the level set using the 
 % linear sampling method. The code currently assumes
 % that the obstacle is a Dirichlet obstacle, that the data
@@ -62,7 +62,13 @@ function [Ig,xgrid0,ygrid0] = lsm_tensor(n_tgt,n_dir,u_meas,alpha)
     % trick here for the kite
     %
     A = uscat*hd;
-    F = A' * A + alpha * eye(n_dir);
+    if partial
+        A = A(1:n_tgt/2,1:n_dir/2);
+        b = b(1:n_tgt/2,:);
+        F = A' * A + alpha * eye(floor(n_dir/2));
+    else
+        F = A' * A + alpha * eye(n_dir);
+    end
     fprintf('Condition number of LSM operator:%d\n',cond(A))
     fprintf('Condition number of LSM problem after regularization:%d\n',cond(F))
 

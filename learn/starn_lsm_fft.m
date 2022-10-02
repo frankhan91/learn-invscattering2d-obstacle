@@ -4,18 +4,20 @@ clearvars -except lsm_idx
 if nargin == 0
     lsm_idx=1;
 end
-
-cfg_path = './configs/nc5.json';
+star_specific = true;
+partial = false;
+cfg_path = './configs/nc10.json';
 cfg_str = fileread(cfg_path);
 cfg = jsondecode(cfg_str);
 % max number of wiggles
 nc = cfg.nc;
-kh=5;
+kh = cfg.kh;
 n  = max(300, 50*nc);
 
 % parameters 'a'
-rng(1100) %in order to have the save validation data with DL method
-coefs_all = sample_fc(cfg, 100);
+rng(cfg.ndata+cfg.nvalid) %in order to have the save validation data with DL method
+%rng(0)
+coefs_all = sample_fc(cfg, cfg.nvalid);
 coefs = coefs_all(lsm_idx,:); clear coefs_all
 % coefs = [1.1065    0.0303   -0.0099    0.0208   -0.1834    0.1053   -0.0658   -0.0723    0.0413    0.2207    0.2602];
 % coefs = [1.1731   -0.1557   -0.0933   -0.0094    0.1546    0.0249   -0.1576   -0.1490   -0.0734   -0.1267   -0.0028];
@@ -24,7 +26,6 @@ coefs = coefs_all(lsm_idx,:); clear coefs_all
 % coefs = [1.1980   -0.1341   -0.0365    0.0409   -0.0296   -0.0360    0.0110    0.0952   -0.0225   -0.0836    0.2121];
 % coefs = [1.0118   -0.0632    0.2416   -0.0661    0.1001   -0.2760   -0.2827    0.0132    0.2706   -0.1546    0.1030];
 % coefs = [1.0295   -0.1482    0.0032   -0.2533   -0.0440    0.1414   -0.0604   -0.0031   -0.1481   -0.1662    0.1909];
-
 % Test obstacle Frechet derivative for Dirichlet problem
 bc = [];
 bc.type = 'Dirichlet';
@@ -75,7 +76,7 @@ u_meas.err_est = erra;
 
 alpha = 1e-8;
 
-[Ig,xgrid0,ygrid0] = lsm.lsm_tensor(n_tgt,n_dir,u_meas,alpha);
+[Ig,xgrid0,ygrid0] = lsm.lsm_tensor(n_tgt,n_dir,u_meas,alpha,partial);
 figure; surf(xgrid0,ygrid0,Ig); shading interp; view(2); hold on;  
 plot3(src_info.xs,src_info.ys,100*ones(size(src_info.xs)),'k')
 
@@ -145,7 +146,7 @@ end
 %make some data
 t = theta(1, 2:end);
 x = rho(1, 2:end);
-nc_lsm = 5;
+nc_lsm = nc;
 
 %file exchange submission
 [afit, bfit, yfit] = Fseries(t,x,nc_lsm);
@@ -176,25 +177,42 @@ dist = pdist2([src_info.xs; src_info.ys]', bdry_points');
 err_Chamfer1 = mean([min(dist), min(dist,[],2)'])
 
 %% apply the inverse algorithm
-bc = [];
-bc.type = 'Dirichlet';
-bc.invtype = 'o';
-
-optim_opts = [];
-opts = [];
-opts.verbose=true;
-bc = [];
-bc.type = 'Dirichlet';
-bc.invtype = 'o';
-optim_opts.optim_type = 'sd';
-optim_opts.filter_type = cfg.filter_type;
-opts.store_src_info = true;
-u_meas_all = cell(1,1);
-u_meas_all{1} = u_meas;
-[inv_data_all_lsm,src_info_out_lsm] = rla.rla_inverse_solver(u_meas_all,bc,...
-                          optim_opts,opts,src_lsm);
-iter_count = inv_data_all_lsm{1}.iter_count;
-src_info_lsm_res = inv_data_all_lsm{1}.src_info_all{iter_count};
+if star_specific
+    umeas = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
+    inverse_inputs = [];
+    inverse_inputs.nc = nc;
+    inverse_inputs.kh = kh;
+    inverse_inputs.n_dir = n_dir;
+    inverse_inputs.n_tgt = n_tgt;
+    inverse_inputs.n = n;
+    inverse_inputs.r_tgt = r_tgt;
+%     inverse_inputs.alpha = 1;
+%     inverse_inputs.eps_step = 5e-8;
+%     inverse_inputs.eps_res = 1e-6;
+%     inverse_inputs.max_it      = 20;
+    coef_out = starn_specific_inverse(umeas, coefs_lsm_fit,inverse_inputs);
+    src_info_lsm_res = geometries.starn(coef_out,nc,n);
+else
+    bc = [];
+    bc.type = 'Dirichlet';
+    bc.invtype = 'o';
+    
+    optim_opts = [];
+    opts = [];
+    opts.verbose=true;
+    bc = [];
+    bc.type = 'Dirichlet';
+    bc.invtype = 'o';
+    optim_opts.optim_type = 'sd';
+    optim_opts.filter_type = cfg.filter_type;
+    opts.store_src_info = true;
+    u_meas_all = cell(1,1);
+    u_meas_all{1} = u_meas;
+    [inv_data_all_lsm,src_info_out_lsm] = rla.rla_inverse_solver(u_meas_all,bc,...
+                              optim_opts,opts,src_lsm);
+    iter_count = inv_data_all_lsm{1}.iter_count;
+    src_info_lsm_res = inv_data_all_lsm{1}.src_info_all{iter_count};
+end
 %%
 plot(src_info_lsm_res.xs,src_info_lsm_res.ys);
 legend('true boundary', 'lsm boundary', 'fitted star shape from lsm boundary', 'refined boundary')
