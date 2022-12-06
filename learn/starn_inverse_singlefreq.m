@@ -9,6 +9,7 @@ star_specific = true;
 env_path = readlines('env_path.txt');
 env_path = env_path(1); % only read the first line
 test_origin_alg = false;
+partial = false;
 if strcmp(data_type, 'nn_stored')
     % CAREFUL: need to enter manually
     pred_path = './data/star3_kh10_n48_100/valid_predby_test.mat';
@@ -73,6 +74,37 @@ sensor_info.t_dir = t_dir_grid;
 if strcmp(data_type, 'random') || strcmp(data_type, 'nn')
     rng(pred_idx+ndata)
     coef = sample_fc(cfg, 1);
+    % coefs for the figures
+    % nc=5, k=5
+    %coef = [1.00647342205048	0.00869796052575111	-0.0303471498191357
+    % 0.000751996121834964	0.0479891784489155	-0.0489483885467052
+    % -0.0330795720219612	-0.0122160883620381	-0.0566566064953804
+    % -0.0533075556159020	0.0667197480797768];
+
+    % nc=10, k=10
+    %coef = [1.06346285343170	-0.0202399902045727	-0.0170682966709137
+    % -0.0356857813894749	-0.00907227210700512	-0.0243198294192553
+    % -0.00444695958867669	0.00213610520586371	0.0144090102985501
+    % -0.0701758041977882	0.00326031912118197	-0.0140952924266458
+    % 0.00273356749676168	0.0793705955147743	-0.0348840728402138
+    % -0.00611411174759269	0.00945145450532436	0.0149966273456812
+    % -0.0208816770464182	0.0593406111001968	0.0543491393327713];
+    
+    % nc=20, k=30
+    %coef = [1.13417851924896	0.0319831594824791	0.00969072338193655
+    % 0.0138962203636765	0.0147123169153929	-0.0254861395806074
+    % 0.0354111380875111	-0.0244231950491667	0.00566629925742745	
+    % 0.00692472420632839	-0.0374359302222729	-0.0273015685379505
+    % 0.0703499987721443	-0.0704057291150093	-0.0162532664835453
+    % -0.00317577272653580	0.0641473233699799	-0.0606653206050396	
+    % -0.0153619600459933	-0.00540020968765020	-0.0123984999954700
+    % -0.0314480774104595	0.0397983677685261	-0.0481126308441162	
+    % 0.0346182174980640	0.0797742232680321	-0.0384230874478817
+    % -0.0228993073105812	0.0375300496816635	0.0232317112386227
+    % 0.0200495086610317	0.0325807854533196	-0.0137067576870322
+    % 0.0246882103383541	0.0174419805407524	0.0942149385809898
+    % 0.0158416125923395	-0.0291298329830170	0.00178801163565367
+    % -0.00437810551375151	0.0968383029103279];
 end
 
 if strcmp(data_type, 'nn') && nc_test > 0
@@ -106,8 +138,9 @@ if strcmp(data_type, 'nn')
     dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_n' int2str(n_tgt) '_' int2str(ndata)];
     temp_pred_path = strcat(dirname, '/temp.mat');
     coefs_all = coef;
-    noise = randn(n_dir*n_tgt, 1) * noise_level;
-    uscat_all = reshape(fields.uscat_tgt + noise, [1,n_dir, n_tgt]);
+    rng(0)
+    noise = 1 + noise_level * rand(n_dir*n_tgt, 1) .* exp(2*pi*1i*rand(n_dir*n_tgt, 1));
+    uscat_all = reshape(fields.uscat_tgt .* noise, [1,n_dir, n_tgt]);
     save(temp_pred_path, 'coefs_all', 'uscat_all', 'cfg_str');
     [status,cmdout] = system(strcat(env_path, ' predict.py --data_path=', temp_pred_path,...
         ' --model_path=', model_path, ' --print_coef=True'));
@@ -123,7 +156,7 @@ u_meas = cell(1,1);
 u_meas0 = [];
 u_meas0.kh = kh;
 if strcmp(data_type, 'nn')
-    u_meas0.uscat_tgt = fields.uscat_tgt + noise;
+    u_meas0.uscat_tgt = fields.uscat_tgt .* noise;
 else
     u_meas0.uscat_tgt = fields.uscat_tgt;
 end
@@ -133,7 +166,7 @@ u_meas0.err_est = erra;
 u_meas{1} = u_meas0;
 
 if star_specific
-    umeas = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
+    umeas = reshape(u_meas0.uscat_tgt, [n_dir, n_tgt]);
     model_name = [model_name '_star'];
     inverse_inputs = [];
     inverse_inputs.nc = nc;
@@ -142,6 +175,7 @@ if star_specific
     inverse_inputs.n_tgt = n_tgt;
     inverse_inputs.n = n;
     inverse_inputs.r_tgt = r_tgt;
+    inverse_inputs.partial = partial;
 %     inverse_inputs.alpha = 1;
 %     inverse_inputs.eps_step = 5e-8;
 %     inverse_inputs.eps_res = 1e-6;
@@ -167,9 +201,10 @@ if test_origin_alg
     if star_specific
         coef_out = starn_specific_inverse(umeas, [1,zeros(1,2*nc)],inverse_inputs);
         src_info_default_res = geometries.starn(coef_out,nc,n);
+        err_l2_refined_orig = norm(coef - coef_out) / norm(coef)
     else
         [inv_data_all,src_info_out] = rla.rla_inverse_solver(u_meas,bc,...
-                                  optim_opts,opts);
+                                    optim_opts,opts);
         iter_count = inv_data_all{1}.iter_count;
         src_info_default_res = inv_data_all{1}.src_info_all{iter_count};
     end
@@ -192,9 +227,10 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     if star_specific
         coef_out = starn_specific_inverse(umeas, coef_pred,inverse_inputs);
         src_info_pred_res = geometries.starn(coef_out,nc,n);
+        err_l2_refined = norm(coef - coef_out) / norm(coef)
     else
         [inv_data_all_pred,~] = rla.rla_inverse_solver(u_meas,bc,...
-                              optim_opts,opts,src_info_pred);
+                                optim_opts,opts,src_info_pred);
         iter_count = inv_data_all_pred{1}.iter_count;
         src_info_pred_res = inv_data_all_pred{1}.src_info_all{iter_count};
     end
@@ -203,7 +239,11 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     d1 = pdist2(inverse_result(1:2,:)', inverse_result(5:6,:)');
     d2 = pdist2(inverse_result(3:4,:)', inverse_result(5:6,:)');
     err_Chamfer = [mean([min(d1), min(d1,[],2)']), mean([min(d2), min(d2,[],2)'])] %pred, refined
-    save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "inverse_result", "err_Chamfer", "err_l2")
+    if star_specific
+        save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "coef", "coef_pred", "inverse_result", "err_Chamfer", "err_l2", "err_l2_refined")
+    else
+        save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "coef", "coef_pred", "inverse_result", "err_Chamfer", "err_l2")
+    end
     plot(src_info_pred.xs,src_info_pred.ys,'r:', 'LineWidth',2);
     plot(src_info_pred_res.xs,src_info_pred_res.ys,'m-.', 'LineWidth',2);
     plot(0, 0, 'r*');
