@@ -11,8 +11,14 @@ N_var = other_inputs.nc;
 n_bd = other_inputs.n;
 n_dir = other_inputs.n_dir;
 n_tgt = other_inputs.n_tgt;
-t_dir = 0:2*pi/n_dir:2*pi-2*pi/n_dir;
-t_tgt = 0:2*pi/n_tgt:2*pi-2*pi/n_tgt;
+if other_inputs.partial
+    t_dir = 0:2*pi/n_dir:pi-2*pi/n_dir; %t_dir = t_dir + pi;
+    t_tgt = 0:2*pi/n_tgt:pi-2*pi/n_tgt; %t_tgt = t_tgt + pi;
+    n_dir = n_dir/2; n_tgt= n_tgt/2;
+else
+    t_dir = 0:2*pi/n_dir:2*pi-2*pi/n_dir;
+    t_tgt = 0:2*pi/n_tgt:2*pi-2*pi/n_tgt;
+end
 x_dir = cos(t_dir);
 y_dir = sin(t_dir);
 x_t   = other_inputs.r_tgt * cos(t_tgt);
@@ -104,7 +110,7 @@ while flag_newton
     inv_Fw1 = inv(Fw_mat1);
     bd_data = duinc - 1i * eta * uinc;
     dudn = inv_Fw1 * bd_data;
-           
+            
     %Still neeed to find u^scat
     Fw_mat = D+eye(n_bd)/2+1i*eta*S;
     inv_Fw = inv(Fw_mat);
@@ -122,7 +128,7 @@ while flag_newton
 %         fprintf('Error dudn=%d\n',max(max(abs(dudn-(dubd_aux+duinc)))))
                     
     %right hand side
-    rhs= umeas-uscat;
+    rhs= umeas(1:n_tgt, 1:n_dir)-uscat;
     rhs = rhs(:);
     
     %constructing matrix for inverse problem        
@@ -151,24 +157,34 @@ while flag_newton
             
     %finding delta
     delta = [real(DFw_var); imag(DFw_var)] \ [ real(rhs); imag(rhs) ];
-            
     delta = delta';
-    %filter, probably not need to low frequencies        
-    if (iffilter == 1)
-        sol_aux   = 0;            
-        hg        = 2/(2*N_var);
-        tg        = -1:hg:1;
-        gauss_val = exp(-tg.*tg/sigma);
-        gauss_new = zeros(1,length(gauss_val)); 
-        gauss_new(1:N_var+1) = gauss_val(N_var+1:end);
-        gauss_new(N_var+2:end) = gauss_val(N_var:-1:1);
-        delta = delta.*gauss_new;
-    end        
     
-    %update domain - > may not need the damping alpha of the Newton
-    %step
-    var_bd = var_bd + alpha * delta;
-            
+    %update domain
+    var_bd_temp = var_bd + alpha * delta;
+    
+    %check if there is self intersection; if yes, use Gaussian filter
+    num_pts = 20 * N_var;
+    ts = 0: (2*pi/num_pts) : (2*pi - 2*pi/num_pts);
+    radius= (cos(ts'*(0:N_var))*var_bd_temp(1:(N_var+1))' + sin(ts'*(1:N_var))*var_bd_temp((N_var+2):end)').';
+    for idx=1:10
+        if prod(radius>0) ==1
+            var_bd = var_bd_temp;
+            if idx > 1
+                fprintf("Self intersection resolved through Gaussian filter")
+            end
+            break
+        else
+            sigma0 = 10^(1-idx);
+            delta = delta .* exp( - [0:N_var, 1:N_var].*2 / (sigma0^2 * N_var^2));
+            var_bd_temp = var_bd + alpha * delta;
+            radius = (cos(ts'*(0:N_var))*var_bd_temp(1:(N_var+1))' + sin(ts'*(1:N_var))*var_bd_temp((N_var+2):end)').';
+        end
+    end
+    if prod(radius>0) ==0
+        fprintf("Self intersection cannot be resolved, stop iteration")
+        break
+    end
+
     %stopping parameter
     if norm(delta)/norm(var_bd) < eps_step
         flag_newton = 0;
