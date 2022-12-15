@@ -4,12 +4,12 @@ clearvars -except lsm_idx
 if nargin == 0
     lsm_idx=1;
 end
-star_specific = true;
 partial = false;
 noise_level = 0;
 cfg_path = './configs/nc5.json';
 cfg_str = fileread(cfg_path);
 cfg = jsondecode(cfg_str);
+star_specific = true;
 % max number of wiggles
 nc = cfg.nc;
 kh = cfg.kh;
@@ -96,7 +96,7 @@ u_meas.kh = kh;
 if noise_level == 0
     u_meas.uscat_tgt = fields.uscat_tgt;
 else
-    rng(0)
+    rng(lsm_idx)
     noise = 1 + noise_level * rand(n_dir*n_tgt, 1) .* exp(2*pi*1i*rand(n_dir*n_tgt, 1));
     u_meas.uscat_tgt = fields.uscat_tgt .* noise;
 end
@@ -205,7 +205,7 @@ plot(src_lsm.xs,src_lsm.ys);
 
 dist = pdist2([src_info.xs; src_info.ys]', bdry_points');
 err_Chamfer1 = mean([min(dist), min(dist,[],2)'])
-
+err_l2_refined = -1;
 %% apply the inverse algorithm
 if star_specific
     umeas = reshape(u_meas.uscat_tgt, [n_dir, n_tgt]);
@@ -216,6 +216,7 @@ if star_specific
     inverse_inputs.n_tgt = n_tgt;
     inverse_inputs.n = n;
     inverse_inputs.r_tgt = r_tgt;
+    inverse_inputs.partial = partial;
 %     inverse_inputs.alpha = 1;
 %     inverse_inputs.eps_step = 5e-8;
 %     inverse_inputs.eps_res = 1e-6;
@@ -255,10 +256,18 @@ inverse_result = [src_lsm.xs; src_lsm.ys; src_info_lsm_res.xs; src_info_lsm_res.
 if ~exist('./data/lsm', 'dir')
     mkdir('./data/lsm');
 end
-if ~exist('./data/lsm/inverse', 'dir')
-    mkdir('./data/lsm/inverse');
+model_dir = ['./data/lsm/inverse' num2str(nc)];
+if noise_level > 0
+    model_dir = [model_dir 'n' num2str(10*noise_level)];
 end
-save(['./data/lsm/inverse/inverse' num2str(lsm_idx) '.mat'], "inverse_result", "err_Chamfer", "err_l2")
+if partial
+    model_dir = [model_dir 'p'];
+end
+if ~exist(model_dir, 'dir')
+    mkdir(model_dir);
+    mkdir([model_dir '/inverse']);
+end
+save([model_dir '/inverse/inverse' num2str(lsm_idx) '.mat'], "inverse_result", "err_Chamfer", "err_l2", "err_l2_refined")
 fprintf(['Chamfer error before refine ' num2str(err_Chamfer1) ', after refine ' num2str(err_Chamfer_refined) '\n'])
 w = 9;
 h = 8;

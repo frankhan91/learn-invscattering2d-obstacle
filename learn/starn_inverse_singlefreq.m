@@ -5,11 +5,13 @@ close all
 clearvars -except pred_idx
 
 data_type = 'nn_stored'; % 'random' or 'nn_stored' or 'nn';
-star_specific = true;
+partial = false;
+noise_level = 0;
 env_path = readlines('env_path.txt');
 env_path = env_path(1); % only read the first line
+model_name = 'test';
+star_specific = true;
 test_origin_alg = false;
-partial = false;
 if strcmp(data_type, 'nn_stored')
     % CAREFUL: need to enter manually
     pred_path = './data/star3_kh10_n48_100/valid_predby_test.mat';
@@ -19,12 +21,12 @@ elseif strcmp(data_type, 'random')
     % CAREFUL: need to enter manually
     cfg_path = './configs/nc3.json';
     cfg_str = fileread(cfg_path);
+    test_origin_alg = true;
 elseif strcmp(data_type, 'nn')
     % CAREFUL: need to enter model_path, nc_test, and noise_level manually
     % the model_path should not end with '/'
     model_path = './data/star3_kh10_n48_100/test';
     nc_test = 0; % use nc in cfg_path if nc_test=0
-    noise_level = 0;
     cfg_path = strcat(model_path, '/data_config.json');
     cfg_str = fileread(cfg_path);
     idx = strfind(model_path, '/');
@@ -50,13 +52,14 @@ opts.src_in = src0;
 opts.verbose = false;
 
 % set target locations
-%receptors (r_{\ell})
+% receptors (r_{\ell}), Incident directions (d_{j})
 r_tgt = cfg.r_tgt;
 n_tgt = cfg.n_tgt;
-t_tgt = 0:2*pi/n_tgt:2*pi-2*pi/n_tgt;
-
-% Incident directions (d_{j})
 n_dir = cfg.n_dir;
+if strcmp(data_type, 'random')
+    n_tgt = 200; n_dir = 200;
+end
+t_tgt = 0:2*pi/n_tgt:2*pi-2*pi/n_tgt;
 t_dir = 0:2*pi/n_dir:2*pi-2*pi/n_dir;
 
 [t_tgt_grid,t_dir_grid] = meshgrid(t_tgt,t_dir);
@@ -133,13 +136,13 @@ fprintf('the true ratio is %2.3f \n', ratio);
 [mats,erra] = rla.get_fw_mats(kh,src_info_ex,bc,sensor_info,opts);
 fields = rla.compute_fields(kh,src_info_ex,mats,sensor_info,bc,opts);
 
+rng(pred_idx)
+noise = 1 + noise_level * rand(n_dir*n_tgt, 1) .* exp(2*pi*1i*rand(n_dir*n_tgt, 1));
 if strcmp(data_type, 'nn')
     % apply the stored predictor
     dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_n' int2str(n_tgt) '_' int2str(ndata)];
     temp_pred_path = strcat(dirname, '/temp.mat');
     coefs_all = coef;
-    rng(0)
-    noise = 1 + noise_level * rand(n_dir*n_tgt, 1) .* exp(2*pi*1i*rand(n_dir*n_tgt, 1));
     uscat_all = reshape(fields.uscat_tgt .* noise, [1,n_dir, n_tgt]);
     save(temp_pred_path, 'coefs_all', 'uscat_all', 'cfg_str');
     [status,cmdout] = system(strcat(env_path, ' predict.py --data_path=', temp_pred_path,...
@@ -148,18 +151,14 @@ if strcmp(data_type, 'nn')
     coef_pred = str2num(cmdout(k+32:end))';
     src_info_pred = geometries.starn(coef_pred,nc,n);
 end
-
+err_l2 = -1;
 if strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     err_l2 = norm(coef - coef_pred) / norm(coef)
 end
 u_meas = cell(1,1);
 u_meas0 = [];
 u_meas0.kh = kh;
-if strcmp(data_type, 'nn')
-    u_meas0.uscat_tgt = fields.uscat_tgt .* noise;
-else
-    u_meas0.uscat_tgt = fields.uscat_tgt;
-end
+u_meas0.uscat_tgt = fields.uscat_tgt .* noise;
 u_meas0.tgt = sensor_info.tgt;
 u_meas0.t_dir = sensor_info.t_dir;
 u_meas0.err_est = erra;
@@ -196,7 +195,7 @@ else
     %optim_opts.eps_upd = 1e-10;
     opts.store_src_info = true;
 end
-
+err_l2_refined_orig = -1;
 if test_origin_alg
     if star_specific
         coef_out = starn_specific_inverse(umeas, [1,zeros(1,2*nc)],inverse_inputs);
@@ -220,10 +219,32 @@ if strcmp(data_type, 'random')
     plot(0, 0, 'r*');
     if test_origin_alg
         legend('true boundary', 'boundary solved by default init', '')
+        model_dir = ['./data/gn/inverse' num2str(nc)];
+        if noise_level > 0
+            model_dir = [model_dir 'n' num2str(10*noise_level)];
+        end
+        if partial
+            model_dir = [model_dir 'p'];
+        end
+        if ~exist(model_dir, 'dir')
+            mkdir(model_dir);
+            mkdir([model_dir '/inverse']);
+        end
+        inverse_result = [src_info_default_res.xs; src_info_default_res.ys;...
+        src_info_ex.xs; src_info_ex.ys]; %GN; true
+        save([model_dir '/inverse/inverse' num2str(pred_idx) '.mat'], "inverse_result", "err_l2_refined_orig")
     else
         legend('true boundary', '')
     end
 elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
+    if noise_level > 0
+        model_path = [model_path '/noise' num2str(10*noise_level)];
+        if ~exist(model_path, 'dir')
+            mkdir(model_path);
+            mkdir([model_path '/inverse']);
+            mkdir([model_path '/figs']);
+        end
+    end
     if star_specific
         coef_out = starn_specific_inverse(umeas, coef_pred,inverse_inputs);
         src_info_pred_res = geometries.starn(coef_out,nc,n);
@@ -240,9 +261,11 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     d2 = pdist2(inverse_result(3:4,:)', inverse_result(5:6,:)');
     err_Chamfer = [mean([min(d1), min(d1,[],2)']), mean([min(d2), min(d2,[],2)'])] %pred, refined
     if star_specific
-        save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "coef", "coef_pred", "inverse_result", "err_Chamfer", "err_l2", "err_l2_refined")
+        save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "coef", "coef_pred", ...
+        "inverse_result", "err_Chamfer", "err_l2", "err_l2_refined", "err_l2_refined_orig")
     else
-        save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "coef", "coef_pred", "inverse_result", "err_Chamfer", "err_l2")
+        save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "coef", "coef_pred", ...
+        "inverse_result", "err_Chamfer", "err_l2", "err_l2_refined_orig")
     end
     plot(src_info_pred.xs,src_info_pred.ys,'r:', 'LineWidth',2);
     plot(src_info_pred_res.xs,src_info_pred_res.ys,'m-.', 'LineWidth',2);
@@ -252,14 +275,14 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     else
         legend('true boundary', 'boundary predicted by nn', 'boundary solved by pred init', '')
     end
+    w = 9;
+    h = 8;
+    set(gcf, 'PaperUnits', 'inches');
+    set(gcf, 'PaperSize', [w h]);
+    set(gcf, 'PaperPositionMode', 'manual');
+    set(gcf, 'PaperPosition', [0 0 w h]);
+    set(gcf, 'renderer', 'painters');
+    fig_path = [model_path '/figs/nc' int2str(nc) '_k' int2str(kh) '_' model_name '_' int2str(pred_idx) '.pdf'];
+    print(gcf, '-dpdf', fig_path);
 end
-w = 9;
-h = 8;
-set(gcf, 'PaperUnits', 'inches');
-set(gcf, 'PaperSize', [w h]);
-set(gcf, 'PaperPositionMode', 'manual');
-set(gcf, 'PaperPosition', [0 0 w h]);
-set(gcf, 'renderer', 'painters');
-fig_path = [model_path '/figs/nc' int2str(nc) '_k' int2str(kh) '_' model_name '_' int2str(pred_idx) '.pdf'];
-print(gcf, '-dpdf', fig_path);
 end
