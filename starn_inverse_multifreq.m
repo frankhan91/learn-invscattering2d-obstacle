@@ -4,7 +4,7 @@
 close all
 clearvars
 
-data_type = 'nn'; % 'random' or 'nn_stored' or 'nn';
+data_type = 'random'; % 'random' or 'nn_stored' or 'nn';
 env_path = readlines('env_path.txt');
 env_path = env_path(1); % only read the first line
 

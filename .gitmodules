@@ -1,0 +1,3 @@
+[submodule "inverse-obstacle-scattering2d"]
+	path = inverse-obstacle-scattering2d
+	url = https://github.com/flatironinstitute/inverse-obstacle-scattering2d.git
