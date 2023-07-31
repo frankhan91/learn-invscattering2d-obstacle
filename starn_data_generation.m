@@ -105,7 +105,7 @@ ndata_per_mat = cfg.ndata_per_mat;
 if nargin == 0
     fprintf('Start to generate training data \n')
     nmat = ndata / ndata_per_mat;
-    parfor mat_index=1:nmat
+    for mat_index=1:nmat
         data_start_index = (mat_index-1) * ndata_per_mat + 1;
         data_end_index = mat_index * ndata_per_mat;
         data_name = [train_data_dir '/train_data_' num2str(data_start_index) '-' num2str(data_end_index) '.mat'];

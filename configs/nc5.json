@@ -8,7 +8,7 @@
     "nvalid": 100,
     "ndata_per_mat": 50,
     "nk": 1,
-    "kh": 10,
+    "kh": 5,
     "n_tgt": 48,
     "n_dir": 48,
     "r_tgt": 10,

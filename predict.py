@@ -13,6 +13,7 @@ import torch
 import torch.utils.data
 import network
 
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 # TODO: add config for both data and predictor
 def parse_args():
     parser = argparse.ArgumentParser()
