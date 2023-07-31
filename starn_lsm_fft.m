@@ -4,7 +4,6 @@ clearvars -except lsm_idx
 if nargin == 0
     lsm_idx=1;
 end
-star_specific = true;
 cfg_path = './configs/nc5.json';
 cfg_str = fileread(cfg_path);
 cfg = jsondecode(cfg_str);
@@ -56,25 +55,25 @@ xtgt = r_tgt*cos(t_tgt_grid);
 ytgt = r_tgt*sin(t_tgt_grid);
 tgt   = [ xtgt'; ytgt'];
 
-sensor_info = [];
-sensor_info.tgt = tgt;
-sensor_info.t_dir = t_dir_grid;
+% sensor_info = [];
+% sensor_info.tgt = tgt;
+% sensor_info.t_dir = t_dir_grid;
 
-src_info = geometries.starn(coefs,nc,n);
+src_info = starn(coefs,nc,n);
 
-[mats,erra] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
-fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
-
-u_meas = [];
-u_meas.kh = kh;
-u_meas.uscat_tgt = fields.uscat_tgt;
-u_meas.tgt = sensor_info.tgt;
-u_meas.t_dir = sensor_info.t_dir;
-u_meas.err_est = erra;
+% [mats,erra] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
+% fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
+uscat_tgt = compute_field(coefs,nc,n,kh,n_dir,n_tgt,r_tgt);
+% u_meas = [];
+% u_meas.kh = kh;
+% u_meas.uscat_tgt = fields.uscat_tgt;
+% u_meas.tgt = sensor_info.tgt;
+% u_meas.t_dir = sensor_info.t_dir;
+% u_meas.err_est = erra;
 
 alpha = 1e-8;
 
-[Ig,xgrid0,ygrid0] = lsm.lsm_tensor(n_tgt,n_dir,u_meas,alpha);
+[Ig,xgrid0,ygrid0] = lsm_tensor(n_tgt,n_dir,kh,uscat_tgt,alpha);
 figure; surf(xgrid0,ygrid0,Ig); shading interp; view(2); hold on;  
 plot3(src_info.xs,src_info.ys,100*ones(size(src_info.xs)),'k')
 
@@ -168,49 +167,27 @@ if nc == nc_lsm
 else
     err_l2 = -1;
 end
-src_lsm = geometries.starn(coefs_lsm_fit,nc_lsm,n);
+src_lsm = starn(coefs_lsm_fit,nc_lsm,n);
 plot(src_lsm.xs,src_lsm.ys);
 
 dist = pdist2([src_info.xs; src_info.ys]', bdry_points');
 err_Chamfer1 = mean([min(dist), min(dist,[],2)'])
 
 %% apply the inverse algorithm
-if star_specific
-    umeas = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
-    inverse_inputs = [];
-    inverse_inputs.nc = nc;
-    inverse_inputs.kh = kh;
-    inverse_inputs.n_dir = n_dir;
-    inverse_inputs.n_tgt = n_tgt;
-    inverse_inputs.n = n;
-    inverse_inputs.r_tgt = r_tgt;
+inverse_inputs = [];
+inverse_inputs.nc = nc;
+inverse_inputs.kh = kh;
+inverse_inputs.n_dir = n_dir;
+inverse_inputs.n_tgt = n_tgt;
+inverse_inputs.n = n;
+inverse_inputs.r_tgt = r_tgt;
 %     inverse_inputs.alpha = 1;
 %     inverse_inputs.eps_step = 5e-8;
 %     inverse_inputs.eps_res = 1e-6;
 %     inverse_inputs.max_it      = 20;
-    coef_out = starn_specific_inverse(umeas, coefs_lsm_fit,inverse_inputs);
-    src_info_lsm_res = geometries.starn(coef_out,nc,n);
-else
-    bc = [];
-    bc.type = 'Dirichlet';
-    bc.invtype = 'o';
-    
-    optim_opts = [];
-    opts = [];
-    opts.verbose=true;
-    bc = [];
-    bc.type = 'Dirichlet';
-    bc.invtype = 'o';
-    optim_opts.optim_type = 'sd';
-    optim_opts.filter_type = cfg.filter_type;
-    opts.store_src_info = true;
-    u_meas_all = cell(1,1);
-    u_meas_all{1} = u_meas;
-    [inv_data_all_lsm,src_info_out_lsm] = rla.rla_inverse_solver(u_meas_all,bc,...
-                                optim_opts,opts,src_lsm);
-    iter_count = inv_data_all_lsm{1}.iter_count;
-    src_info_lsm_res = inv_data_all_lsm{1}.src_info_all{iter_count};
-end
+coef_out = starn_specific_inverse(uscat_tgt, coefs_lsm_fit,inverse_inputs);
+src_info_lsm_res = starn(coef_out,nc,n);
+
 %%
 plot(src_info_lsm_res.xs,src_info_lsm_res.ys);
 legend('true boundary', 'lsm boundary', 'fitted star shape from lsm boundary', 'refined boundary')
@@ -221,6 +198,9 @@ inverse_result = [src_lsm.xs; src_lsm.ys; src_info_lsm_res.xs; src_info_lsm_res.
         src_info.xs; src_info.ys]; %lsm; refined; true
 if ~exist('./data/lsm', 'dir')
     mkdir('./data/lsm');
+end
+if ~exist('./data/lsm/figs', 'dir')
+    mkdir('./data/lsm/figs');
 end
 if ~exist('./data/lsm/inverse', 'dir')
     mkdir('./data/lsm/inverse');
@@ -234,6 +214,6 @@ set(gcf, 'PaperSize', [w h]);
 set(gcf, 'PaperPositionMode', 'manual');
 set(gcf, 'PaperPosition', [0 0 w h]);
 set(gcf, 'renderer', 'painters');
-fig_path = ['./figs/nc' int2str(nc) '_k' int2str(kh) '_nclsm' int2str(nc_lsm) '_' int2str(lsm_idx) '.pdf'];
+fig_path = ['./data/lsm/figs/nc' int2str(nc) '_k' int2str(kh) '_nclsm' int2str(nc_lsm) '_' int2str(lsm_idx) '.pdf'];
 print(gcf, '-dpdf', fig_path);
 end
