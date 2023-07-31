@@ -5,7 +5,7 @@ close all
 clearvars -except pred_idx
 
 data_type = 'nn_stored'; % 'random' or 'nn_stored' or 'nn';
-star_specific = true;
+%star_specific = true;
 env_path = readlines('env_path.txt');
 env_path = env_path(1); % only read the first line
 test_origin_alg = false;
@@ -18,6 +18,7 @@ elseif strcmp(data_type, 'random')
     % CAREFUL: need to enter manually
     cfg_path = './configs/nc3.json';
     cfg_str = fileread(cfg_path);
+    model_name = 'random';
 elseif strcmp(data_type, 'nn')
     % CAREFUL: need to enter model_path, nc_test, and noise_level manually
     % the model_path should not end with '/'
@@ -52,23 +53,23 @@ opts.verbose = false;
 %receptors (r_{\ell})
 r_tgt = cfg.r_tgt;
 n_tgt = cfg.n_tgt;
-t_tgt = 0:2*pi/n_tgt:2*pi-2*pi/n_tgt;
+% t_tgt = 0:2*pi/n_tgt:2*pi-2*pi/n_tgt;
 
 % Incident directions (d_{j})
 n_dir = cfg.n_dir;
-t_dir = 0:2*pi/n_dir:2*pi-2*pi/n_dir;
+% t_dir = 0:2*pi/n_dir:2*pi-2*pi/n_dir;
 
-[t_tgt_grid,t_dir_grid] = meshgrid(t_tgt,t_dir);
-t_tgt_grid = t_tgt_grid(:);
-t_dir_grid = t_dir_grid(:);
-xtgt = r_tgt*cos(t_tgt_grid);
-ytgt = r_tgt*sin(t_tgt_grid);
-tgt   = [ xtgt'; ytgt'];
+% [t_tgt_grid,t_dir_grid] = meshgrid(t_tgt,t_dir);
+% t_tgt_grid = t_tgt_grid(:);
+%t_dir_grid = t_dir_grid(:);
+% xtgt = r_tgt*cos(t_tgt_grid);
+% ytgt = r_tgt*sin(t_tgt_grid);
+% tgt   = [ xtgt'; ytgt'];
 
 
-sensor_info = [];
-sensor_info.tgt = tgt;
-sensor_info.t_dir = t_dir_grid;
+% sensor_info = [];
+% sensor_info.tgt = tgt;
+% sensor_info.t_dir = t_dir_grid;
 
 if strcmp(data_type, 'random') || strcmp(data_type, 'nn')
     rng(pred_idx+ndata)
@@ -86,93 +87,71 @@ end
 if strcmp(data_type, 'nn_stored')
     coef = nn_pred.coef_val(pred_idx, :);
     coef_pred = nn_pred.coef_pred(pred_idx, :);
-    src_info_pred = geometries.starn(coef_pred,nc,n);
+    src_info_pred = starn(coef_pred,nc,n);
     idx = strfind(pred_path, '_');
     model_name = pred_path(idx(end)+1:end-4);
     idx = strfind(pred_path, '/');
     model_path = [pred_path(1:idx(end)) model_name];
 end
 
-src_info_ex = geometries.starn(coef,nc,n);
+src_info_ex = starn(coef,nc,n);
 freq = fft(src_info_ex.H);
 freq_tail = freq(n_curv+2:end-n_curv);
 ratio = norm(freq_tail) / norm(freq);
 fprintf('the true ratio is %2.3f \n', ratio);
-[mats,erra] = rla.get_fw_mats(kh,src_info_ex,bc,sensor_info,opts);
-fields = rla.compute_fields(kh,src_info_ex,mats,sensor_info,bc,opts);
+% [mats,erra] = rla.get_fw_mats(kh,src_info_ex,bc,sensor_info,opts);
+% fields = rla.compute_fields(kh,src_info_ex,mats,sensor_info,bc,opts);
+uscat = compute_field(coef,nc,n,kh,n_dir,n_tgt,r_tgt);
 
 if strcmp(data_type, 'nn')
     % apply the stored predictor
     dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_n' int2str(n_tgt) '_' int2str(ndata)];
     temp_pred_path = strcat(dirname, '/temp.mat');
     coefs_all = coef;
-    noise = randn(n_dir*n_tgt, 1) * noise_level;
-    uscat_all = reshape(fields.uscat_tgt + noise, [1,n_dir, n_tgt]);
+    noise = randn(n_dir,n_tgt) * noise_level;
+    uscat_all = reshape(uscat + noise, [1,n_dir, n_tgt]);
     save(temp_pred_path, 'coefs_all', 'uscat_all', 'cfg_str');
     [status,cmdout] = system(strcat(env_path, ' predict.py --data_path=', temp_pred_path,...
         ' --model_path=', model_path, ' --print_coef=True'));
     k = strfind(cmdout,'start to print the coefficients'); % this string has length 31
     coef_pred = str2num(cmdout(k+32:end))';
-    src_info_pred = geometries.starn(coef_pred,nc,n);
+    src_info_pred = starn(coef_pred,nc,n);
 end
 
 if strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     err_l2 = norm(coef - coef_pred) / norm(coef)
 end
-u_meas = cell(1,1);
-u_meas0 = [];
-u_meas0.kh = kh;
-if strcmp(data_type, 'nn')
-    u_meas0.uscat_tgt = fields.uscat_tgt + noise;
-else
-    u_meas0.uscat_tgt = fields.uscat_tgt;
-end
-u_meas0.tgt = sensor_info.tgt;
-u_meas0.t_dir = sensor_info.t_dir;
-u_meas0.err_est = erra;
-u_meas{1} = u_meas0;
+% u_meas = cell(1,1);
+% u_meas0 = [];
+% u_meas0.kh = kh;
+% if strcmp(data_type, 'nn')
+%     u_meas0.uscat_tgt = uscat + noise;
+% else
+%     u_meas0.uscat_tgt = uscat;
+% end
+% u_meas0.tgt = sensor_info.tgt;
+% u_meas0.t_dir = sensor_info.t_dir;
+% u_meas0.err_est = erra;
+% u_meas{1} = u_meas0;
 
-if star_specific
-    umeas = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
-    model_name = [model_name '_star'];
-    inverse_inputs = [];
-    inverse_inputs.nc = nc;
-    inverse_inputs.kh = kh;
-    inverse_inputs.n_dir = n_dir;
-    inverse_inputs.n_tgt = n_tgt;
-    inverse_inputs.n = n;
-    inverse_inputs.r_tgt = r_tgt;
+umeas = uscat;
+model_name = [model_name '_star'];
+inverse_inputs = [];
+inverse_inputs.nc = nc;
+inverse_inputs.kh = kh;
+inverse_inputs.n_dir = n_dir;
+inverse_inputs.n_tgt = n_tgt;
+inverse_inputs.n = n;
+inverse_inputs.r_tgt = r_tgt;
 %     inverse_inputs.alpha = 1;
 %     inverse_inputs.eps_step = 5e-8;
 %     inverse_inputs.eps_res = 1e-6;
 %     inverse_inputs.max_it      = 20;
-else
-    optim_opts = [];
-    opts = [];
-    opts.verbose=true;
-    bc = [];
-    bc.type = 'Dirichlet';
-    bc.invtype = 'o';
-    optim_opts.optim_type = cfg.optim_type;
-    optim_opts.filter_type = cfg.filter_type;
-    optim_opts.n_curv = n_curv;
-    optim_opts.optim_type = 'sd'; model_name=[model_name optim_opts.optim_type];
-    %optim_opts.eps_curv = 0.1;
-    %optim_opts.eps_res = 1e-10;
-    %optim_opts.eps_upd = 1e-10;
-    opts.store_src_info = true;
-end
+
 
 if test_origin_alg
-    if star_specific
-        coef_out = starn_specific_inverse(umeas, [1,zeros(1,2*nc)],inverse_inputs);
-        src_info_default_res = geometries.starn(coef_out,nc,n);
-    else
-        [inv_data_all,src_info_out] = rla.rla_inverse_solver(u_meas,bc,...
-                                  optim_opts,opts);
-        iter_count = inv_data_all{1}.iter_count;
-        src_info_default_res = inv_data_all{1}.src_info_all{iter_count};
-    end
+    coef_out = starn_specific_inverse(umeas, [1,zeros(1,2*nc)],inverse_inputs);
+    src_info_default_res = starn(coef_out,nc,n);
 end
 figure
 hold on
@@ -189,15 +168,9 @@ if strcmp(data_type, 'random')
         legend('true boundary', '')
     end
 elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
-    if star_specific
-        coef_out = starn_specific_inverse(umeas, coef_pred,inverse_inputs);
-        src_info_pred_res = geometries.starn(coef_out,nc,n);
-    else
-        [inv_data_all_pred,~] = rla.rla_inverse_solver(u_meas,bc,...
-                              optim_opts,opts,src_info_pred);
-        iter_count = inv_data_all_pred{1}.iter_count;
-        src_info_pred_res = inv_data_all_pred{1}.src_info_all{iter_count};
-    end
+    coef_out = starn_specific_inverse(umeas, coef_pred,inverse_inputs);
+    src_info_pred_res = starn(coef_out,nc,n);
+    
     inverse_result = [src_info_pred.xs; src_info_pred.ys; src_info_pred_res.xs; src_info_pred_res.ys;...
         src_info_ex.xs; src_info_ex.ys]; %pred; refined; true
     d1 = pdist2(inverse_result(1:2,:)', inverse_result(5:6,:)');
@@ -212,7 +185,6 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     else
         legend('true boundary', 'boundary predicted by nn', 'boundary solved by pred init', '')
     end
-end
 w = 9;
 h = 8;
 set(gcf, 'PaperUnits', 'inches');
@@ -222,4 +194,5 @@ set(gcf, 'PaperPosition', [0 0 w h]);
 set(gcf, 'renderer', 'painters');
 fig_path = [model_path '/figs/nc' int2str(nc) '_k' int2str(kh) '_' model_name '_' int2str(pred_idx) '.pdf'];
 print(gcf, '-dpdf', fig_path);
+end
 end
