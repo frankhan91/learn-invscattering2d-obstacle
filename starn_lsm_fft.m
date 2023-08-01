@@ -4,7 +4,7 @@ clearvars -except lsm_idx
 if nargin == 0
     lsm_idx=1;
 end
-cfg_path = './configs/nc5.json';
+cfg_path = './configs/nc10.json';
 cfg_str = fileread(cfg_path);
 cfg = jsondecode(cfg_str);
 % max number of wiggles
@@ -12,7 +12,6 @@ nc = cfg.nc;
 kh = cfg.kh;
 n  = max(300, 50*nc);
 
-% parameters 'a'
 rng(cfg.ndata+cfg.nvalid) %in order to have the save validation data with DL method
 coefs_all = sample_fc(cfg, cfg.nvalid);
 coefs = coefs_all(lsm_idx,:); clear coefs_all
@@ -23,7 +22,6 @@ coefs = coefs_all(lsm_idx,:); clear coefs_all
 % coefs = [1.1980   -0.1341   -0.0365    0.0409   -0.0296   -0.0360    0.0110    0.0952   -0.0225   -0.0836    0.2121];
 % coefs = [1.0118   -0.0632    0.2416   -0.0661    0.1001   -0.2760   -0.2827    0.0132    0.2706   -0.1546    0.1030];
 % coefs = [1.0295   -0.1482    0.0032   -0.2533   -0.0440    0.1414   -0.0604   -0.0031   -0.1481   -0.1662    0.1909];
-% Test obstacle Frechet derivative for Dirichlet problem
 bc = [];
 bc.type = 'Dirichlet';
 bc.invtype = 'o';
@@ -55,22 +53,8 @@ xtgt = r_tgt*cos(t_tgt_grid);
 ytgt = r_tgt*sin(t_tgt_grid);
 tgt   = [ xtgt'; ytgt'];
 
-% sensor_info = [];
-% sensor_info.tgt = tgt;
-% sensor_info.t_dir = t_dir_grid;
-
 src_info = starn(coefs,nc,n);
-
-% [mats,erra] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
-% fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
 uscat_tgt = compute_field(coefs,nc,n,kh,n_dir,n_tgt,r_tgt);
-% u_meas = [];
-% u_meas.kh = kh;
-% u_meas.uscat_tgt = fields.uscat_tgt;
-% u_meas.tgt = sensor_info.tgt;
-% u_meas.t_dir = sensor_info.t_dir;
-% u_meas.err_est = erra;
-
 alpha = 1e-8;
 
 [Ig,xgrid0,ygrid0] = lsm_tensor(n_tgt,n_dir,kh,uscat_tgt,alpha);
@@ -156,8 +140,8 @@ plot(t,yfit,'g')
 legend('original data',['Fit with Fseries to ',num2str(nc_lsm),' frequencies'])
 
 %% check if the extracted curve match the true one
-figure; plot(src_info.xs,src_info.ys); hold on;
-plot(bdry_points(1,:),bdry_points(2,:));
+figure; plot(src_info.xs,src_info.ys,'LineWidth',2); hold on;
+plot(bdry_points(1,:),bdry_points(2,:),'LineWidth',2);
 coefs_lsm_fit = zeros([1,2*nc_lsm+1]);
 coefs_lsm_fit(1, 1) = afit(1) / 2;
 coefs_lsm_fit(1, 2:nc_lsm+1) = afit(2:end)';
@@ -168,10 +152,10 @@ else
     err_l2 = -1;
 end
 src_lsm = starn(coefs_lsm_fit,nc_lsm,n);
-plot(src_lsm.xs,src_lsm.ys);
+plot(src_lsm.xs,src_lsm.ys,'LineWidth',2);
 
 dist = pdist2([src_info.xs; src_info.ys]', bdry_points');
-err_Chamfer1 = mean([min(dist), min(dist,[],2)'])
+err_Chamfer1 = mean([min(dist), min(dist,[],2)']);
 
 %% apply the inverse algorithm
 inverse_inputs = [];
@@ -181,15 +165,11 @@ inverse_inputs.n_dir = n_dir;
 inverse_inputs.n_tgt = n_tgt;
 inverse_inputs.n = n;
 inverse_inputs.r_tgt = r_tgt;
-%     inverse_inputs.alpha = 1;
-%     inverse_inputs.eps_step = 5e-8;
-%     inverse_inputs.eps_res = 1e-6;
-%     inverse_inputs.max_it      = 20;
 coef_out = starn_specific_inverse(uscat_tgt, coefs_lsm_fit,inverse_inputs);
 src_info_lsm_res = starn(coef_out,nc,n);
 
 %%
-plot(src_info_lsm_res.xs,src_info_lsm_res.ys);
+plot(src_info_lsm_res.xs,src_info_lsm_res.ys, 'LineWidth',2);
 legend('true boundary', 'lsm boundary', 'fitted star shape from lsm boundary', 'refined boundary')
 dist_refined = pdist2([src_info_lsm_res.xs; src_info_lsm_res.ys]', [src_info.xs; src_info.ys]');
 err_Chamfer_refined = mean([min(dist_refined), min(dist_refined,[],2)']);

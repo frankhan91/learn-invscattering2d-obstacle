@@ -5,7 +5,7 @@
     "fc_max": 0.1,
     "decay": 0,
     "ndata": 2000,
-    "nvalid": 50,
+    "nvalid": 100,
     "ndata_per_mat": 100,
     "nk": 1,
     "kh": 10,

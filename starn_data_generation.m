@@ -77,10 +77,6 @@ if nargin == 0 || mat_id == 0
     uscat_val = zeros(nvalid, n_dir, n_tgt);
     for idx=1:nvalid
         coefs = coefs_val(idx, :);
-%         src_info = starn(coefs,nc,n);
-%         [mats,~] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
-%         fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
-%         uscat_val(idx, :, :) = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
         uscat_val(idx, :, :) = compute_field(coefs,nc,n,kh,n_dir,n_tgt,r_tgt);
     end
     
@@ -113,11 +109,6 @@ if nargin == 0
         uscat = complex(zeros(ndata_per_mat, n_dir, n_tgt));
         for local_idx = 1:ndata_per_mat
             coef = coefs(local_idx, :);
-%             src_info = starn(coef,nc,n);
-%             [mats,~] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
-%             fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
-%             uscat_temp = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
-%             uscat(local_idx,:,:) = uscat_temp;
             uscat(local_idx,:,:) = compute_field(coef,nc,n,kh,n_dir,n_tgt,r_tgt);
         end
         save_fcn(data_name, coefs, uscat);
@@ -135,11 +126,6 @@ elseif mat_id >= 1
         uscat = complex(zeros(ndata_per_mat, n_dir, n_tgt));
         for local_idx = 1:ndata_per_mat
             coef = coefs(local_idx, :);
-%             src_info = starn(coef,nc,n);
-%             [mats,~] = rla.get_fw_mats(kh,src_info,bc,sensor_info,opts);
-%             fields = rla.compute_fields(kh,src_info,mats,sensor_info,bc,opts);
-%             uscat_temp = reshape(fields.uscat_tgt, [n_dir, n_tgt]);
-%             uscat(local_idx,:,:) = uscat_temp;
             uscat(local_idx,:,:) = compute_field(coef,nc,n,kh,n_dir,n_tgt,r_tgt);
         end
         save_fcn(data_name, coefs, uscat);

@@ -5,13 +5,12 @@ close all
 clearvars -except pred_idx
 
 data_type = 'nn_stored'; % 'random' or 'nn_stored' or 'nn';
-%star_specific = true;
 env_path = readlines('env_path.txt');
 env_path = env_path(1); % only read the first line
-test_origin_alg = false;
+test_origin_alg = true;
 if strcmp(data_type, 'nn_stored')
     % CAREFUL: need to enter manually
-    pred_path = './data/star3_kh10_n48_100/valid_predby_test.mat';
+    pred_path = './data/star10_kh10_n48_2000/valid_predby_pretrained.mat';
     nn_pred = load(pred_path);
     cfg_str = nn_pred.cfg_str;
 elseif strcmp(data_type, 'random')
@@ -22,7 +21,7 @@ elseif strcmp(data_type, 'random')
 elseif strcmp(data_type, 'nn')
     % CAREFUL: need to enter model_path, nc_test, and noise_level manually
     % the model_path should not end with '/'
-    model_path = './data/star3_kh10_n48_100/test';
+    model_path = './data/star10_kh10_n48_2000/pretrained';
     nc_test = 0; % use nc in cfg_path if nc_test=0
     noise_level = 0;
     cfg_path = strcat(model_path, '/data_config.json');
@@ -50,26 +49,13 @@ opts.src_in = src0;
 opts.verbose = false;
 
 % set target locations
-%receptors (r_{\ell})
+% receptors (r_{\ell})
 r_tgt = cfg.r_tgt;
 n_tgt = cfg.n_tgt;
-% t_tgt = 0:2*pi/n_tgt:2*pi-2*pi/n_tgt;
 
 % Incident directions (d_{j})
 n_dir = cfg.n_dir;
-% t_dir = 0:2*pi/n_dir:2*pi-2*pi/n_dir;
 
-% [t_tgt_grid,t_dir_grid] = meshgrid(t_tgt,t_dir);
-% t_tgt_grid = t_tgt_grid(:);
-%t_dir_grid = t_dir_grid(:);
-% xtgt = r_tgt*cos(t_tgt_grid);
-% ytgt = r_tgt*sin(t_tgt_grid);
-% tgt   = [ xtgt'; ytgt'];
-
-
-% sensor_info = [];
-% sensor_info.tgt = tgt;
-% sensor_info.t_dir = t_dir_grid;
 
 if strcmp(data_type, 'random') || strcmp(data_type, 'nn')
     rng(pred_idx+ndata)
@@ -95,12 +81,6 @@ if strcmp(data_type, 'nn_stored')
 end
 
 src_info_ex = starn(coef,nc,n);
-freq = fft(src_info_ex.H);
-freq_tail = freq(n_curv+2:end-n_curv);
-ratio = norm(freq_tail) / norm(freq);
-fprintf('the true ratio is %2.3f \n', ratio);
-% [mats,erra] = rla.get_fw_mats(kh,src_info_ex,bc,sensor_info,opts);
-% fields = rla.compute_fields(kh,src_info_ex,mats,sensor_info,bc,opts);
 uscat = compute_field(coef,nc,n,kh,n_dir,n_tgt,r_tgt);
 
 if strcmp(data_type, 'nn')
@@ -118,22 +98,6 @@ if strcmp(data_type, 'nn')
     src_info_pred = starn(coef_pred,nc,n);
 end
 
-if strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
-    err_l2 = norm(coef - coef_pred) / norm(coef)
-end
-% u_meas = cell(1,1);
-% u_meas0 = [];
-% u_meas0.kh = kh;
-% if strcmp(data_type, 'nn')
-%     u_meas0.uscat_tgt = uscat + noise;
-% else
-%     u_meas0.uscat_tgt = uscat;
-% end
-% u_meas0.tgt = sensor_info.tgt;
-% u_meas0.t_dir = sensor_info.t_dir;
-% u_meas0.err_est = erra;
-% u_meas{1} = u_meas0;
-
 umeas = uscat;
 model_name = [model_name '_star'];
 inverse_inputs = [];
@@ -143,11 +107,6 @@ inverse_inputs.n_dir = n_dir;
 inverse_inputs.n_tgt = n_tgt;
 inverse_inputs.n = n;
 inverse_inputs.r_tgt = r_tgt;
-%     inverse_inputs.alpha = 1;
-%     inverse_inputs.eps_step = 5e-8;
-%     inverse_inputs.eps_res = 1e-6;
-%     inverse_inputs.max_it      = 20;
-
 
 if test_origin_alg
     coef_out = starn_specific_inverse(umeas, [1,zeros(1,2*nc)],inverse_inputs);
@@ -175,8 +134,11 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
         src_info_ex.xs; src_info_ex.ys]; %pred; refined; true
     d1 = pdist2(inverse_result(1:2,:)', inverse_result(5:6,:)');
     d2 = pdist2(inverse_result(3:4,:)', inverse_result(5:6,:)');
-    err_Chamfer = [mean([min(d1), min(d1,[],2)']), mean([min(d2), min(d2,[],2)'])] %pred, refined
-    save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "inverse_result", "err_Chamfer", "err_l2")
+    err_Chamfer = [mean([min(d1), min(d1,[],2)']), mean([min(d2), min(d2,[],2)'])]; %pred, refined
+    fprintf('Chamfer difference for DL prediction: %0.3e, for DL refined: %0.3e\n', err_Chamfer(1), err_Chamfer(2))
+    err_l2 = [norm(coef - coef_pred) / norm(coef), norm(coef - coef_out) / norm(coef)];
+    fprintf('L2 difference for DL prediction: %0.3e, for DL refined: %0.3e\n', err_l2(1), err_l2(2))
+    save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "inverse_result", "err_Chamfer", "err_l2");
     plot(src_info_pred.xs,src_info_pred.ys,'r:', 'LineWidth',2);
     plot(src_info_pred_res.xs,src_info_pred_res.ys,'m-.', 'LineWidth',2);
     plot(0, 0, 'r*');
