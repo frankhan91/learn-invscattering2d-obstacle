@@ -22,7 +22,7 @@ Solve an inverse problem whose initial guess provided by a pretrained model is s
 starn_inverse_singlefreq(1, 'nn_stored', './pretrained/star10_kh10_n48/valid_predby_pretrained.mat');
 ```
 
-Solve an inverse problem whose initial guess is obtained by calling a pretrained model (requiring a file named "env_path.txt" in the current directory providing the location to python binary file, like the absolute path to '~/miniconda3/envs/invscatnn/bin/python')
+Solve an inverse problem whose initial guess is obtained by calling a pretrained model (:warning: requiring a file named "env_path.txt" in the current directory providing the location to python binary file, like the absolute path to '~/miniconda3/envs/invscatnn/bin/python')
 ```
 starn_inverse_singlefreq(1, 'nn', './pretrained/star10_kh10_n48/pretrained');
 ```
