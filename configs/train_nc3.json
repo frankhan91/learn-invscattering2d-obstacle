@@ -1,7 +1,7 @@
 {
     "seed": 123,
     "batch_size": 20,
-    "epoch": 500,
+    "epoch": 200,
     "ndata_train": 0,
     "n_dir_train": 0,
     "n_tgt_train": 0,
@@ -10,7 +10,7 @@
     "optimizer": "SGD",
     "lr": 0.16,
     "momentum": 0.9,
-    "milestones": [200, 300],
+    "milestones": [100],
     "gamma": 0.5,
     "network_type": "convnet",
     "out_channels": 4,

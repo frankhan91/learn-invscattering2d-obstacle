@@ -1,12 +1,19 @@
-% This script generates the data for a star shaped domain, for a fixed
-% number of sensors and incident directions where data is available for all
-% sensors at each incident direction
-function starn_data_generation(mat_id)
+function starn_data_generation(mat_id, cfg_path)
+% starn_data_generation generates scattering data for a star shaped domain
+% with a fixed number of sensors and incident directions such that data is 
+% available for all sensors at each incident direction
+%
+% mat_id = 0: generate validation data with size 'nvalid' specified in the
+% config file
+% mat_id > 0: generate training data with index from 
+% (max_id-1)*ndata_per_mat+1 to mat_id*ndata_per_mat, with 'ndata_per_mat'
+% specified in the config file
+% mat_id < 0: generate validation data and all training data
 close all
-clearvars -except mat_id
+clearvars -except mat_id cfg_path
 tic
-if nargin == 0
-    fprintf('Runing the code on one server \n')
+if mat_id < 0
+    fprintf('Generating validatation data and all training data \n')
 elseif mat_id == 0
     fprintf('Generating validation data \n')
 else
@@ -14,7 +21,6 @@ else
     num2str(mat_id) ', will not generate validation data. \n'])
 end
 
-cfg_path = './configs/nc3.json';
 data_prefix = '';
 cfg_str = fileread(cfg_path);
 cfg = jsondecode(cfg_str);
@@ -73,7 +79,7 @@ if ndata>1 && ~exist(train_data_dir, 'dir')
     mkdir(train_data_dir)
 end
 
-if nargin == 0 || mat_id == 0
+if mat_id <= 0
     uscat_val = zeros(nvalid, n_dir, n_tgt);
     for idx=1:nvalid
         coefs = coefs_val(idx, :);
@@ -98,7 +104,7 @@ if nargin == 0 || mat_id == 0
 end
 save_fcn = @(name, coefs, uscat) save(name, 'coefs', 'uscat');
 ndata_per_mat = cfg.ndata_per_mat;
-if nargin == 0
+if mat_id < 0
     fprintf('Start to generate training data \n')
     nmat = ndata / ndata_per_mat;
     for mat_index=1:nmat
