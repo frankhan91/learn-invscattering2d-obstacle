@@ -1,38 +1,63 @@
-% This script solves inverse problem based on single frequency data. The
-% data is either generated randomly in this script or read from pred.mat
-function starn_inverse_singlefreq(pred_idx)
-close all
-clearvars -except pred_idx
+function starn_inverse_singlefreq(pred_idx, data_type, input_path)
+% starn_inverse_singlefreq solves an inverse problem based on single 
+% frequency data. The data is either generated randomly in this script 
+% or read from pred.mat
+%
+% Argument: 
+% 
+% pred_idx: an integer explicitly determining the case to be solved from 
+% 'nn_stored' data or implicitly determining the case sampled from
+% sample_fc.m
+%
+% data_type and input_path:
+% There are three options for data_type and input_path should be
+% corresponding path to read the needed file.
+% 1. data_type = 'nn_stored', input_path should be data path storinig the
+%    predicted coefficients on the valid data, like 
+%    './data/star10_kh10_n48_2000/valid_predby_pretrained.mat'. The code
+%    will use DL pred coefficients to warm-start the Gauss-Newton solver
+% 2. data_type = 'random', input_path should be the config path defining
+%    the problem, like './configs/nc3.json'. The code will use zeros to
+%    initialize the coefficients in the Gauss-Newton solver
+% 3. data_type = 'nn', input_path should be path to a saved mode, like 
+%    './data/star10_kh10_n48_pretrained/pretrained'. The code will use DL
+%    pred coefficients to warm-start the Gauss-Newton solver
 
-data_type = 'nn_stored'; % 'random' or 'nn_stored' or 'nn';
-env_path = readlines('env_path.txt');
-env_path = env_path(1); % only read the first line
+
+close all
+clearvars -except pred_idx data_type input_path
+
+
 test_origin_alg = true;
 if strcmp(data_type, 'nn_stored')
-    % CAREFUL: need to enter manually
-    pred_path = './data/star10_kh10_n48_2000/valid_predby_pretrained.mat';
+    pred_path = input_path;
     nn_pred = load(pred_path);
     cfg_str = nn_pred.cfg_str;
 elseif strcmp(data_type, 'random')
-    % CAREFUL: need to enter manually
-    cfg_path = './configs/nc3.json';
+    cfg_path = input_path;
     cfg_str = fileread(cfg_path);
     model_name = 'random';
 elseif strcmp(data_type, 'nn')
-    % CAREFUL: need to enter model_path, nc_test, and noise_level manually
-    % the model_path should not end with '/'
-    model_path = './data/star10_kh10_n48_2000/pretrained';
+    % nc_test and noise_level are set manually in the script
+    model_path = input_path;
     nc_test = 0; % use nc in cfg_path if nc_test=0
     noise_level = 0;
-    cfg_path = strcat(model_path, '/data_config.json');
+    cfg_path = fullfile(model_path, 'data_config.json');
     cfg_str = fileread(cfg_path);
-    idx = strfind(model_path, '/');
-    model_name = model_path(idx(end)+1:end);
+    tmp_str = split(model_path, '/');
+    if model_path(end) == '/'
+        model_name = tmp_str{end-1};
+        dirname = strjoin(tmp_str(1:end-2), '/');
+    else
+        model_name = tmp_str{end};
+        dirname = strjoin(tmp_str(1:end-1), '/');
+    end
+    env_path = readlines('env_path.txt');
+    env_path = env_path(1); % only read the first line
 end
 cfg_str = erase(cfg_str, '\n'); % jsondecode cannot read '\n' (in big data)
 cfg = jsondecode(cfg_str);
 ndata = cfg.ndata;
-n_curv = 100;
 nc = cfg.nc; % max number of wiggles
 n  = max(300,50*nc);
 kh = cfg.kh; %frequency
@@ -85,7 +110,6 @@ uscat = compute_field(coef,nc,n,kh,n_dir,n_tgt,r_tgt);
 
 if strcmp(data_type, 'nn')
     % apply the stored predictor
-    dirname = ['./data/star' int2str(nc) '_kh' int2str(kh) '_n' int2str(n_tgt) '_' int2str(ndata)];
     temp_pred_path = strcat(dirname, '/temp.mat');
     coefs_all = coef;
     noise = randn(n_dir,n_tgt) * noise_level;
@@ -122,7 +146,7 @@ end
 if strcmp(data_type, 'random')
     plot(0, 0, 'r*');
     if test_origin_alg
-        legend('true boundary', 'boundary solved by default init', '')
+        legend('true boundary', 'boundary solved from default init', '')
     else
         legend('true boundary', '')
     end
@@ -138,14 +162,18 @@ elseif strcmp(data_type, 'nn_stored') || strcmp(data_type, 'nn')
     fprintf('Chamfer difference for DL prediction: %0.3e, for DL refined: %0.3e\n', err_Chamfer(1), err_Chamfer(2))
     err_l2 = [norm(coef - coef_pred) / norm(coef), norm(coef - coef_out) / norm(coef)];
     fprintf('L2 difference for DL prediction: %0.3e, for DL refined: %0.3e\n', err_l2(1), err_l2(2))
-    save([model_path '/inverse/inverse' num2str(pred_idx) '.mat'], "inverse_result", "err_Chamfer", "err_l2");
+    tmp_dir = fullfile(model_path, 'inverse');
+    if ~exist(tmp_dir, 'dir')
+        mkdir(tmp_dir)
+    end
+    save(fullfile(tmp_dir, ['inverse' num2str(pred_idx) '.mat']), "inverse_result", "err_Chamfer", "err_l2");
     plot(src_info_pred.xs,src_info_pred.ys,'r:', 'LineWidth',2);
     plot(src_info_pred_res.xs,src_info_pred_res.ys,'m-.', 'LineWidth',2);
     plot(0, 0, 'r*');
     if test_origin_alg
-        legend('true boundary', 'boundary solved by default init', 'boundary predicted by nn', 'boundary solved by pred init', '')
+        legend('true boundary', 'boundary solved from default init', 'boundary predicted by nn', 'boundary solved from pred init', '')
     else
-        legend('true boundary', 'boundary predicted by nn', 'boundary solved by pred init', '')
+        legend('true boundary', 'boundary predicted by nn', 'boundary solved from pred init', '')
     end
 w = 9;
 h = 8;
@@ -154,7 +182,11 @@ set(gcf, 'PaperSize', [w h]);
 set(gcf, 'PaperPositionMode', 'manual');
 set(gcf, 'PaperPosition', [0 0 w h]);
 set(gcf, 'renderer', 'painters');
-fig_path = [model_path '/figs/nc' int2str(nc) '_k' int2str(kh) '_' model_name '_' int2str(pred_idx) '.pdf'];
+tmp_dir = fullfile(model_path, 'figs');
+if ~exist(tmp_dir, 'dir')
+    mkdir(tmp_dir)
+end
+fig_path = fullfile(tmp_dir, ['nc' int2str(nc) '_k' int2str(kh) '_' model_name '_' int2str(pred_idx) '.pdf']);
 print(gcf, '-dpdf', fig_path);
 end
 end

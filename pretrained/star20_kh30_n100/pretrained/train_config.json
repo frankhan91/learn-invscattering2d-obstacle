@@ -1,0 +1,1 @@
+{"seed": 123, "batch_size": 100, "epoch": 0, "ndata_train": 0, "n_dir_train": 0, "n_tgt_train": 0, "valid_freq": 10, "save_every_nepoch": 100, "optimizer": "SGD", "lr": 0.16, "momentum": 0.9, "milestones": [5000], "gamma": 0.5, "network_type": "convnet", "out_channels": 20, "kernel_size": 9, "paddle": 4, "linear_dim": [1000, 200], "data_type": "float32"}

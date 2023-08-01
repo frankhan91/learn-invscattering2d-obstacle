@@ -1,10 +1,11 @@
-function starn_lsm_fft(lsm_idx)
+function starn_lsm_fft(lsm_idx, cfg_path)
+% starn_lsm_fft uses linear sampling method to compute a level curve and
+% extracts a star-shaped contour curve through FFT
 close all
-clearvars -except lsm_idx
+clearvars -except lsm_idx cfg_path
 if nargin == 0
     lsm_idx=1;
 end
-cfg_path = './configs/nc10.json';
 cfg_str = fileread(cfg_path);
 cfg = jsondecode(cfg_str);
 % max number of wiggles
