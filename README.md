@@ -15,7 +15,7 @@ Mo Zhou, Jiequn Han, Manas Rachh, Carlos Borges
 * Python (for training your own model and evaluation). Quick installation of conda environment: ``conda env create -f environment.yml``
 
 ## Running
-All the commands below can also be found in ``run.m``. They are all run in MATLAB, except the training of model.
+All the commands below can also be found in ``run_example.m``. They are all run in MATLAB, except the training of model.
 ### Run the Gauss-Newton inverse solver with a pretrained model
 Solve an inverse problem whose initial guess provided by a pretrained model is stored already
 ```
